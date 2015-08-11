@@ -23,7 +23,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.rules.TemporaryFolder;
-import org.junit.rules.Timeout;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,11 +31,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.*;
 
-import static no.digipost.cache.fallback.DiskStorageFallbackLoader.LOCK_EXPIRES_AFTER;
+import static no.digipost.cache.fallback.DiskStorageFallback.LOCK_EXPIRES_AFTER;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
 
-public class DiskStorageFallbackLoaderTest {
+public class DiskStorageFallbackTest {
 
 	@Rule
 	public TemporaryFolder temporaryFolder = new TemporaryFolder();
@@ -100,7 +99,7 @@ public class DiskStorageFallbackLoaderTest {
 
 	@Test
 	public void should_allow_update_of_disk_fallback_if_lock_expired() throws Exception {
-		final DiskStorageFallbackLoader<String> diskFallback = newDiskFallback(new OkCacheLoader(FIRST_CONTENT));
+		final DiskStorageFallback<String> diskFallback = newDiskFallback(new OkCacheLoader(FIRST_CONTENT));
 		diskFallback.call(); //initialize disk fallback
 
 		// simulate lock
@@ -115,12 +114,12 @@ public class DiskStorageFallbackLoaderTest {
 	}
 
 
-	private DiskStorageFallbackLoader<String> newDiskFallback(Callable<String> loader) {
+	private DiskStorageFallback<String> newDiskFallback(Callable<String> loader) {
 		return newDiskFallback(loader, new SerializingMarshaller<String>());
 	}
 
-	private DiskStorageFallbackLoader<String> newDiskFallback(Callable<String> loader, Marshaller<String> marshaller) {
-		return new DiskStorageFallbackLoader<>(cache, loader, marshaller);
+	private DiskStorageFallback<String> newDiskFallback(Callable<String> loader, Marshaller<String> marshaller) {
+		return new DiskStorageFallback<>(cache, loader, marshaller);
 	}
 
 	public static class WaitOnWriteMarshaller extends SerializingMarshaller<String> {

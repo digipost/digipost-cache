@@ -39,8 +39,8 @@ import static org.joda.time.Duration.standardMinutes;
  * until the write-opertation succeeds (thus overwriting the stale data).
  *
  */
-public class DiskStorageFallbackLoader<T> implements Callable<T> {
-	private static final Logger LOG = LoggerFactory.getLogger(DiskStorageFallbackLoader.class);
+public class DiskStorageFallback<T> implements Callable<T> {
+	private static final Logger LOG = LoggerFactory.getLogger(DiskStorageFallback.class);
 	public static final Duration LOCK_EXPIRES_AFTER = standardMinutes(10);
 
 	final Path lockFile;
@@ -50,7 +50,7 @@ public class DiskStorageFallbackLoader<T> implements Callable<T> {
 	private final Random random = new Random();
 
 
-	public DiskStorageFallbackLoader(Path cacheFile, Callable<T> cacheLoader, Marshaller<T> marshaller) {
+	public DiskStorageFallback(Path cacheFile, Callable<T> cacheLoader, Marshaller<T> marshaller) {
 		this.cacheFile = cacheFile;
 		this.marshaller = marshaller;
 		this.lockFile = cacheFile.resolveSibling(cacheFile.getFileName() + ".lock");
@@ -79,6 +79,7 @@ public class DiskStorageFallbackLoader<T> implements Callable<T> {
 				return tryReadFromDisk();
 			} catch (RuntimeException exceptionWhileReadingFromDisk) {
 				LOG.error("Failed to read cache-content from disk:", exceptionWhileReadingFromDisk);
+				originalException.addSuppressed(exceptionWhileReadingFromDisk);
 				throw originalException;
 			}
 		}

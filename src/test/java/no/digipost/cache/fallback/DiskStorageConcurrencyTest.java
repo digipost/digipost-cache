@@ -50,7 +50,7 @@ public class DiskStorageConcurrencyTest {
 
 	@Test
 	public void massive_concurrency() throws Exception {
-		final DiskStorageFallbackLoader<String> fallbackLoader = new DiskStorageFallbackLoader<String>(cache, new RandomAnswerCacheLoader(), new SerializingMarshaller<String>());
+		final DiskStorageFallback<String> fallbackLoader = new DiskStorageFallback<String>(cache, new RandomAnswerCacheLoader(), new SerializingMarshaller<String>());
 		fallbackLoader.call(); // initialize disk-cache
 
 		final ListeningExecutorService executorService = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(30));
