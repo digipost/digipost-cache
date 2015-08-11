@@ -80,7 +80,7 @@ public class DiskStorageConcurrencyTest {
 		private String randomString(int length) {
 			StringBuilder sb = new StringBuilder();
 			for (int i = 0; i < length; i++) {
-				sb.append((char)(random.nextInt(25) + 'a'));
+				sb.append((char) (random.nextInt(25) + 'a'));
 			}
 			return sb.toString();
 		}

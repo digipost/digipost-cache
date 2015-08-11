@@ -23,6 +23,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.rules.TemporaryFolder;
+import org.junit.rules.Timeout;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -43,6 +44,8 @@ public class DiskStorageFallbackTest {
 	public ExpectedException expectedException = ExpectedException.none();
 	@Rule
 	public final FreezedTime time = new FreezedTime(DateTime.now().getMillis());
+	@Rule
+	public final Timeout timeout = new Timeout(10, TimeUnit.SECONDS);
 
 	public static final String FIRST_CONTENT = "first_content";
 	public static final String SECOND_CONTENT = "second_content";
@@ -86,12 +89,13 @@ public class DiskStorageFallbackTest {
 		// will take lock and wait
 		final Future<String> waitingWrite = executor.submit(
 						newDiskFallback(new OkCacheLoader(SECOND_CONTENT), waitingMarshaller));
+		waitingMarshaller.waitUntilWriteStarts();
 
 		assertThat(newDiskFallback(new FailingCacheLoader()).call(), is(FIRST_CONTENT)); // second call will not have finished writing
 		assertThat(newDiskFallback(new OkCacheLoader(THIRD_CONTENT)).call(), is(THIRD_CONTENT)); // will not be allowed to write to disk, lock is taken
 		assertThat(newDiskFallback(new FailingCacheLoader()).call(), is(FIRST_CONTENT));
 
-		waitingMarshaller.waiter.countDown(); //starts and lets writing finish
+		waitingMarshaller.finishWriting(); //starts and lets writing finish
 		waitingWrite.get();
 
 		assertThat(newDiskFallback(new FailingCacheLoader()).call(), is(SECOND_CONTENT));
@@ -124,7 +128,8 @@ public class DiskStorageFallbackTest {
 
 	public static class WaitOnWriteMarshaller extends SerializingMarshaller<String> {
 
-		private CountDownLatch waiter = new CountDownLatch(1);
+		private CountDownLatch waitOnWrite = new CountDownLatch(1);
+		private CountDownLatch waitBeforeStartWrite = new CountDownLatch(1);
 
 		@Override
 		public String read(InputStream input) {
@@ -133,11 +138,24 @@ public class DiskStorageFallbackTest {
 
 		@Override
 		public void write(String toWrite, OutputStream output) {
+			waitBeforeStartWrite.countDown();
 			try {
-				waiter.await();
+				waitOnWrite.await();
 			} catch (InterruptedException e) {
 			}
 			super.write(toWrite, output);
+		}
+
+		public void waitUntilWriteStarts() {
+			try {
+				waitBeforeStartWrite.await();
+			} catch (InterruptedException e) {
+				throw new RuntimeException(e);
+			}
+		}
+
+		public void finishWriting() {
+			waitOnWrite.countDown();
 		}
 	}
 
