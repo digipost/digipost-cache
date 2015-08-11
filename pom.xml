@@ -106,6 +106,7 @@
 							<exclude>NOTICE</exclude>
 							<exclude>src/main/notice/NOTICE.template</exclude>
 							<exclude>**/*.xml</exclude>
+							<exclude>src/test/resources/**</exclude>
 						</excludes>
 					</configuration>
 				</plugin>
