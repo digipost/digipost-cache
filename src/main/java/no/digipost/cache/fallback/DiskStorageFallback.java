@@ -31,10 +31,10 @@ import static org.joda.time.DateTime.now;
 import static org.joda.time.Duration.standardMinutes;
 
 /**
- * Cache-loader wrapper that persists the last cache-content to disk to be used as fallback-mechanism if
+ * Cache-loader wrapper that persists the last cache-value to disk to be used as fallback-mechanism if
  * the primary cache-loader fails.
  *
- * Should the write-operation start to fail, the cache-content on disk may become out-dated. Currently,
+ * Should the write-operation start to fail, the cache-value on disk may become out-dated. Currently,
  * this content is never considered to be expired, and it will continue to return a "stale" copy of the cache
  * until the write-opertation succeeds (thus overwriting the stale data).
  *
@@ -64,21 +64,21 @@ public class DiskStorageFallback<T> implements Callable<T> {
 			final T newCacheContent = cacheLoader.call();
 
 			try {
-				tryWriteToDiskIfLock(newCacheContent); // TODO: what todo if write fails? Possibly expiration limit of disk-copy aswell
+				tryWriteToDiskIfLock(newCacheContent);
 			} catch (RuntimeException e) {
-				LOG.warn("Failed to write cache-content to disk (for use as fallback).", e);
+				LOG.warn("Failed to write cache-value to disk (for use as fallback). Will still return value from wrapped cache-loader.", e);
 			}
 
 			return newCacheContent;
 
 		} catch (RuntimeException originalException) {
-			LOG.warn("Cache-loading failed. Attempting to load from disk as fallback mechanism. Enable debug-level to see stacktrace.");
+			LOG.warn("Failed to load cache-value from wrapped cache-loader. Attempting to load from disk as fallback mechanism. Enable debug-level to see stacktrace.");
 			LOG.debug("Stacktrace for failing cache loading:", originalException);
 
 			try {
 				return tryReadFromDisk();
 			} catch (RuntimeException exceptionWhileReadingFromDisk) {
-				LOG.error("Failed to read cache-content from disk:", exceptionWhileReadingFromDisk);
+				LOG.error("Failed while attempting to read cache-value from disk.", exceptionWhileReadingFromDisk);
 				originalException.addSuppressed(exceptionWhileReadingFromDisk);
 				throw originalException;
 			}
@@ -87,6 +87,7 @@ public class DiskStorageFallback<T> implements Callable<T> {
 
 	private void tryWriteToDiskIfLock(T newCacheContent) {
 
+		// Check if lock is available. Removed expired locks.
 		if (Files.exists(lockFile)) {
 
 			if (isLockFileExpired()) {
@@ -95,19 +96,23 @@ public class DiskStorageFallback<T> implements Callable<T> {
 					return;
 				}
 			} else {
-				LOG.debug("Another process is updating the cache. Will not write to disk");
+				LOG.debug("Another process is updating the cache-value. Skipping write.");
 				return;
 			}
 		}
 
+		// Attempt to aquire lock
 		try {
 			LOG.trace("Creating lockfile");
-			Files.createFile(lockFile);
+			Files.createFile(lockFile); // fails if lock-file exists
 		} catch (IOException e) {
 			LOG.debug("Failed to create lock-file. Likely means that another process created it. Skipping write.");
+			// TODO: how do we detect continuous failing to create lock-file because of permission problems? will never warn currently..
+			//       warn on outdated disk-fallback?
 			return;
 		}
 
+		// Lock aquired. Update cache-value on disk
 		try {
 
 			final Path tempFile = getTempfilePath(cacheFile);
@@ -121,7 +126,8 @@ public class DiskStorageFallback<T> implements Callable<T> {
 				marshaller.write(newCacheContent, out);
 
 			} catch (IOException | RuntimeException e) {
-				LOG.error("Failed to write cache-content to file " + cacheFile + ". Will not attempt write until next time cache expires and loads.", e);
+				LOG.error("Failed to write cache-value to file " + cacheFile + ". Will not attempt write until next time cache expires and loads from wrapped cache-loader.", e);
+				silentDelete(tempFile);
 				return;
 			}
 
@@ -131,6 +137,7 @@ public class DiskStorageFallback<T> implements Callable<T> {
 			} catch (IOException e) {
 				LOG.error("Failed to replace current cache-file with new copy.", e);
 				silentDelete(tempFile);
+				return;
 			}
 
 
@@ -159,7 +166,7 @@ public class DiskStorageFallback<T> implements Callable<T> {
 
 	private T tryReadFromDisk() {
 		if (!Files.exists(cacheFile)) {
-			throw new RuntimeException("Cache-content not found on disk. Should only happen the first time using the disk-fallback loader.");
+			throw new RuntimeException("Cache-value not found on disk. Should only happen the first time using the disk-fallback loader.");
 		}
 
 		try (InputStream diskCacheContent = new FileInputStream(cacheFile.toFile())) {
@@ -167,7 +174,7 @@ public class DiskStorageFallback<T> implements Callable<T> {
 			return marshaller.read(diskCacheContent);
 
 		} catch (IOException e) {
-			throw new RuntimeException("Failed to read cache-content from disk.", e);
+			throw new RuntimeException("Failed to read cache-value from disk.", e);
 		}
 	}
 
