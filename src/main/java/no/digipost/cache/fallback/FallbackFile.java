@@ -36,12 +36,11 @@ import static java.nio.file.StandardOpenOption.WRITE;
 
 public class FallbackFile {
 
-	private static final Logger LOG = LoggerFactory.getLogger(FallbackFile.class);
-
-	private final Random random = new SecureRandom();
-
 	public final Path cacheValue;
 	public final Path lock;
+
+	private static final Logger LOG = LoggerFactory.getLogger(FallbackFile.class);
+	private final Random random = new SecureRandom();
 	private final AtomicBoolean written;
 
 	FallbackFile(Path file) {
@@ -50,6 +49,12 @@ public class FallbackFile {
 		this.written = new AtomicBoolean(Files.exists(cacheValue));
 	}
 
+
+	/**
+	 * Read the contents of the fallback file.
+	 *
+	 * @return an {@link InputStream} for reading the contents of the fallback file.
+	 */
 	public InputStream read() throws IOException {
 		boolean fallbackFileExists = Files.exists(cacheValue);
 		written.compareAndSet(false, fallbackFileExists);
@@ -65,6 +70,12 @@ public class FallbackFile {
 		return Files.newInputStream(cacheValue);
 	}
 
+
+	/**
+	 * Write contents to the fallback file.
+	 *
+	 * @return an {@link OutputStream} to write the fallback contents to.
+	 */
 	public OutputStream write() throws IOException {
 		final Path tempfile = getTempfile();
 		if (Files.exists(tempfile)) {
@@ -99,7 +110,6 @@ public class FallbackFile {
 			}
 		};
 	}
-
 
 
 	@Override

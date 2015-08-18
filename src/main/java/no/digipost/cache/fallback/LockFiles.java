@@ -24,10 +24,18 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.joda.time.Duration.standardMinutes;
+
 public class LockFiles {
+
+	public static final Duration DEFAULT_LOCK_MAXIMUM_TIME_TO_LIVE = standardMinutes(10);
 
 	private final Duration lockfileExpiration;
 	private final Logger logger;
+
+	public LockFiles(Logger logger) {
+		this(DEFAULT_LOCK_MAXIMUM_TIME_TO_LIVE, logger);
+	}
 
 	public LockFiles(Duration lockfileExpiration, Logger logger) {
 		this.lockfileExpiration = lockfileExpiration;
@@ -35,13 +43,15 @@ public class LockFiles {
 	}
 
 	/**
-	 * Will run delegate if this thread is able to create lockfile. lockfile will be deleted again after delegate is run.
+	 * Will run delegate if this thread is able to create given {@code lockfile}.
+	 * The {@code lockfile} will be deleted again after delegate is run.
+	 *
 	 * @param lockfile the marker-file to use to signal a lock
 	 * @param delegate will be run if lock is acquired successfully
 	 * @return
 	 */
 	public boolean runIfLock(Path lockfile, Runnable delegate) {
-		boolean acquiredLock = acquireLock(lockfile);
+		boolean acquiredLock = tryLock(lockfile);
 		if (!acquiredLock) {
 			return false;
 		}
@@ -55,12 +65,34 @@ public class LockFiles {
 		}
 	}
 
-	private boolean acquireLock(Path lockfile) {
+
+	/**
+	 * Try to acquire a lock in order to safely write to the fallback file. This method is
+	 * used for situations where one need to <em>attempt</em> writing, but it is ok to skip
+	 * if other processes are currently writing to the file. It should always be invoked in
+	 * the following fashion:
+	 *
+	 * <pre>{@code
+	 * if (lockFiles.tryLock(lockFile)) {
+	 *     try (OutputStream o = fallbackFile.write()) {
+	 *         // ...
+	 *     } finally {
+	 *         lockFiles.releaseLock();
+	 *     }
+	 * }
+	 * </pre>
+	 *
+	 *
+	 * @return {@code true} if the lock was acquired, {@code false} false otherwise.
+	 */
+	public boolean tryLock(Path lockfile) {
 		// Check if lock is available. Removed expired locks.
 		if (isLocked(lockfile)) {
 
 			if (lockedLongerAgoThan(lockfileExpiration, lockfile)) {
-				logger.warn("Lock-file is considered to be expired since it is older than {}. Deleting it.", lockfileExpiration);
+				logger.warn("Lock-file is considered to be expired since it is older than {}. Deleting it. " +
+                            "There may be some problematic code which are unable to correctly release an aquired lock.",
+                            lockfileExpiration);
 				if (!tryDeleteExpiredLockFile(lockfile)) {
 					return false;
 				}
@@ -115,17 +147,22 @@ public class LockFiles {
 		}
 	}
 
-	private boolean releaseLock(Path lockfile) {
+	public boolean releaseLock(Path lockfile) {
 		try {
 			logger.trace("Deleting lockfile");
 			final boolean wasDeleted = Files.deleteIfExists(lockfile);
 			if (!wasDeleted) {
-				logger.error("Failed to delete lock-file. This could indicate that the lock-file was deleted by another process. This should never happen if the other processes honor the lock-file.");
+				logger.error("Failed to delete lock-file {}. "
+						+ "This could indicate that the lock-file was deleted by another process. "
+						+ "This should never happen if the other processes honor the lock-file.",
+						lockfile);
 			}
 			return wasDeleted;
 
 		} catch (IOException e) {
-			logger.error("Failed to delete lock-file. Lock-file will be deleted when the lock expires. In the meantime, no process will be able to acquire the lock.", e);
+			logger.error("Failed to delete lock-file {} because {}: '{}'. Lock-file will be deleted "
+					+ "when the lock expires. In the meantime, no process will be able to aquire the lock.",
+					lockfile, e.getClass().getSimpleName(), e.getMessage(), e);
 			return false;
 		}
 	}

@@ -15,11 +15,11 @@
  */
 package no.digipost.cache.fallback;
 
-import no.digipost.cache.fallback.testharness.ExactKeyAsFilename;
 import no.digipost.cache.fallback.testharness.FailingCacheLoader;
 import no.digipost.cache.fallback.testharness.OkCacheLoader;
 import no.digipost.cache.fallback.testharness.SimulatedLoaderFailure;
 import no.digipost.cache.loader.Loader;
+import no.digipost.cache.loader.LoaderDecorator;
 import no.digipost.util.FreezedTime;
 import org.joda.time.DateTime;
 import org.joda.time.Duration;
@@ -37,7 +37,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.*;
 
-import static no.digipost.cache.fallback.DiskStorageFallbackLoader.LOCK_EXPIRES_AFTER;
+import static no.digipost.cache.fallback.FileNamingStrategy.USE_KEY_TOSTRING_AS_FILENAME;
+import static no.digipost.cache.loader.Callables.toLoader;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
 
@@ -109,16 +110,16 @@ public class DiskStorageFallbackTest {
 	@Test
 	public void should_allow_update_of_disk_fallback_if_lock_expired() throws Exception {
 
-		FallbackFile.Resolver<String> fallbackFileResolver = new FallbackFile.Resolver<>(cache, new ExactKeyAsFilename());
-		Loader<String, String> diskFallback = new DiskStorageFallbackLoaderDecorator<>(cache, new ExactKeyAsFilename(), new SerializingMarshaller<String>()).decorate(new OkCacheLoader(FIRST_CONTENT));
+		LoaderDecorator<String, String> diskFallbackDecorator = new DiskStorageFallbackLoaderDecorator<>(cache, USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>());
+		Loader<String, String> diskFallback = diskFallbackDecorator.decorate(toLoader(new OkCacheLoader(FIRST_CONTENT)));
 		diskFallback.load(key); //initialize disk fallback
 
 		// simulate lock
-		Files.createFile(fallbackFileResolver.resolveFor(key).lock);
+		Files.createFile(new FallbackFile.Resolver<>(cache, USE_KEY_TOSTRING_AS_FILENAME).resolveFor(key).lock);
 
 		assertThat(newDiskFallback(new OkCacheLoader(SECOND_CONTENT)).call(), is(SECOND_CONTENT)); // not allowed update
 		assertThat(newDiskFallback(new FailingCacheLoader()).call(), is(FIRST_CONTENT));  // because second call was not allowed to update
-		time.wait(LOCK_EXPIRES_AFTER.plus(Duration.standardSeconds(1)));
+		time.wait(LockFiles.DEFAULT_LOCK_MAXIMUM_TIME_TO_LIVE.plus(Duration.standardSeconds(1)));
 
 		assertThat(newDiskFallback(new OkCacheLoader(THIRD_CONTENT)).call(), is(THIRD_CONTENT)); // allowed update, lock expired
 		assertThat(newDiskFallback(new FailingCacheLoader()).call(), is(THIRD_CONTENT));
@@ -130,9 +131,8 @@ public class DiskStorageFallbackTest {
 	}
 
 	private Callable<String> newDiskFallback(Callable<String> loader, Marshaller<String> marshaller) {
-		DiskStorageFallbackLoaderDecorator<String, String> fallbackLoaderFactory =
-				new DiskStorageFallbackLoaderDecorator<String, String>(cache, new ExactKeyAsFilename(), marshaller);
-		return new Loader.AsCallable<>(fallbackLoaderFactory.decorate(loader), key);
+		LoaderDecorator<String, String> fallbackLoaderFactory =	new DiskStorageFallbackLoaderDecorator<String, String>(cache, USE_KEY_TOSTRING_AS_FILENAME, marshaller);
+		return new Loader.AsCallable<>(fallbackLoaderFactory.decorate(toLoader(loader)), key);
 	}
 
 

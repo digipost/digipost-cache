@@ -33,6 +33,6 @@ public interface LoaderDecorator<K, V> {
 	 *
 	 * @return a new {@code Loader} decorating the given {@code underlyingLoader}.
 	 */
-	Loader<K, V> decorate(Loader<K, V> underlyingLoader);
+	Loader<K, V> decorate(Loader<? super K, V> underlyingLoader);
 
 }

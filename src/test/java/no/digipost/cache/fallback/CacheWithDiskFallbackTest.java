@@ -15,12 +15,11 @@
  */
 package no.digipost.cache.fallback;
 
-import no.digipost.cache.fallback.testharness.ExactKeyAsFilename;
 import no.digipost.cache.fallback.testharness.FailingCacheLoader;
 import no.digipost.cache.fallback.testharness.OkCacheLoader;
 import no.digipost.cache.inmemory.Cache;
 import no.digipost.cache.inmemory.SingleCached;
-import no.digipost.cache.loader.Loader;
+import no.digipost.cache.loader.LoaderDecorator;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -30,30 +29,30 @@ import java.nio.file.Path;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static no.digipost.cache.fallback.FileNamingStrategy.USE_KEY_TOSTRING_AS_FILENAME;
+import static no.digipost.cache.loader.Callables.toLoader;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
 
 public class CacheWithDiskFallbackTest {
+
+	@Rule
+	public final TemporaryFolder fallbackFolder = new TemporaryFolder();
 
 
 	private static final String KEY1 = "key1";
 	private static final String KEY2 = "key2";
 	private static final String CONTENT1 = "content1";
 	private static final String CONTENT2 = "content2";
-	@Rule
-	public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
 	public static final String FIRST_VALUE = "thevalue";
 
 	@Test
 	public void test_single_cached() throws IOException {
-		final Path cacheDir = temporaryFolder.newFolder().toPath();
-		final DiskStorageFallbackLoaderDecorator<String, String> cacheLoaderFactory = new DiskStorageFallbackLoaderDecorator<>(cacheDir, new ExactKeyAsFilename(), new SerializingMarshaller<String>());
-		final FailSecondCacheLoader underlyingCacheLoader = new FailSecondCacheLoader(FIRST_VALUE);
+		LoaderDecorator<String, String> diskFallbackDecorator = new DiskStorageFallbackLoaderDecorator<>(
+				fallbackFolder.getRoot().toPath(), USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>());
 
-		final Loader<String, String> cacheLoaderWithDiskFallback = cacheLoaderFactory.decorate(underlyingCacheLoader);
-
-		final SingleCached<String> cache = new SingleCached<>(cacheLoaderWithDiskFallback);
+		SingleCached<String> cache = new SingleCached<>(diskFallbackDecorator.decorate(toLoader(new FailSecondCacheLoader(FIRST_VALUE))));
 		assertThat(cache.get(), is(FIRST_VALUE));
 		cache.invalidate();
 		assertThat(cache.get(), is(FIRST_VALUE));
@@ -61,17 +60,17 @@ public class CacheWithDiskFallbackTest {
 
 	@Test
 	public void test_cache_with_multiple_keys() throws IOException {
-		final Path cacheDir = temporaryFolder.newFolder().toPath();
+		final Path cacheDir = fallbackFolder.newFolder().toPath();
 		final Cache<String, String> cache = new Cache<>();
-		final DiskStorageFallbackLoaderDecorator<String, String> diskFallbackFactory = new DiskStorageFallbackLoaderDecorator<>(cacheDir, new ExactKeyAsFilename(), new SerializingMarshaller<String>());
+		final LoaderDecorator<String, String> diskFallbackFactory = new DiskStorageFallbackLoaderDecorator<>(cacheDir, USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>());
 
 		// initialize cache
-		cache.get(KEY1, diskFallbackFactory.decorate(new OkCacheLoader(CONTENT1)));
-		cache.get(KEY2, diskFallbackFactory.decorate(new OkCacheLoader(CONTENT2)));
+		cache.get(KEY1, diskFallbackFactory.decorate(toLoader(new OkCacheLoader(CONTENT1))));
+		cache.get(KEY2, diskFallbackFactory.decorate(toLoader(new OkCacheLoader(CONTENT2))));
 
 		cache.invalidateAll();
-		assertThat(cache.get(KEY1, diskFallbackFactory.decorate(new FailingCacheLoader())), is(CONTENT1));
-		assertThat(cache.get(KEY2, diskFallbackFactory.decorate(new FailingCacheLoader())), is(CONTENT2));
+		assertThat(cache.get(KEY1, diskFallbackFactory.decorate(toLoader(new FailingCacheLoader()))), is(CONTENT1));
+		assertThat(cache.get(KEY2, diskFallbackFactory.decorate(toLoader(new FailingCacheLoader()))), is(CONTENT2));
 	}
 
 	private static class FailSecondCacheLoader implements Callable<String> {

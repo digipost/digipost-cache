@@ -16,19 +16,19 @@
 package no.digipost.cache.fallback;
 
 import no.digipost.cache.fallback.FallbackFile.Resolver;
-import no.digipost.cache.loader.Callables;
 import no.digipost.cache.loader.Loader;
 import no.digipost.cache.loader.LoaderDecorator;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.concurrent.Callable;
 
 public class DiskStorageFallbackLoaderDecorator<K, V> implements LoaderDecorator<K, V> {
+
 	private final Path fallbackDirectory;
 	private final FileNamingStrategy<? super K> fallbackFileNamingStrategy;
 	private final Marshaller<V> marshaller;
+
 
 	public DiskStorageFallbackLoaderDecorator(Path fallbackDirectory, FileNamingStrategy<? super K> fallbackFileNamingStrategy, Marshaller<V> marshaller) {
 		this.fallbackDirectory = fallbackDirectory;
@@ -36,12 +36,8 @@ public class DiskStorageFallbackLoaderDecorator<K, V> implements LoaderDecorator
 		this.marshaller = marshaller;
 	}
 
-	public Loader<K, V> decorate(Callable<V> loader) {
-		return decorate(Callables.<K, V>toLoader(loader));
-	}
-
 	@Override
-	public Loader<K, V> decorate(Loader<K, V> loader) {
+	public Loader<K, V> decorate(Loader<? super K, V> loader) {
 		Resolver<K> resolver = new FallbackFile.Resolver<>(fallbackDirectory, fallbackFileNamingStrategy);
 		if (Files.isRegularFile(fallbackDirectory)) {
 			throw new IllegalStateException(fallbackDirectory + " should either be non-existing or a directory, but refers to an existing file.");

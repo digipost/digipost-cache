@@ -18,6 +18,16 @@ package no.digipost.cache.fallback;
 public interface FileNamingStrategy<K> {
 
 	/**
+	 * Uses the key's {@link Object#toString()} to yield filename.
+	 */
+	public static final FileNamingStrategy<Object> USE_KEY_TOSTRING_AS_FILENAME = new FileNamingStrategy<Object>() {
+		@Override
+		public String toFilename(Object key) {
+			return key.toString();
+		}
+	};
+
+	/**
 	 * Generates a filename for the given key. The filename MUST be unique for all keys stored in the cache.
 	 *
 	 * The filename returned should not contain any special characters. Ideally matching pattern [a-z0-9]+ .

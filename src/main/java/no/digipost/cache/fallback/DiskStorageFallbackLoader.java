@@ -16,15 +16,12 @@
 package no.digipost.cache.fallback;
 
 import no.digipost.cache.loader.Loader;
-import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-
-import static org.joda.time.Duration.standardMinutes;
 
 /**
  * Cache-loader wrapper that persists the last cache-value to disk to be used as fallback-mechanism if
@@ -36,24 +33,23 @@ import static org.joda.time.Duration.standardMinutes;
  *
  */
 public class DiskStorageFallbackLoader<K, V> implements Loader<K, V> {
-	static final Duration LOCK_EXPIRES_AFTER = standardMinutes(10);
 
 	private final Logger logger;
 	private final FallbackFile.Resolver<K> cacheFileResolver;
 	private final Marshaller<V> marshaller;
-	private final Loader<K, V> cacheLoader;
+	private final Loader<? super K, V> cacheLoader;
 	private final LockFiles lockFiles;
 
-	DiskStorageFallbackLoader(FallbackFile.Resolver<K> cacheFileResolver, Loader<K, V> cacheLoader, Marshaller<V> marshaller) {
+	DiskStorageFallbackLoader(FallbackFile.Resolver<K> cacheFileResolver, Loader<? super K, V> cacheLoader, Marshaller<V> marshaller) {
 		this(LoggerFactory.getLogger(DiskStorageFallbackLoader.class), cacheFileResolver, cacheLoader, marshaller);
 	}
 
-	DiskStorageFallbackLoader(Logger logger, FallbackFile.Resolver<K> cacheFileResolver, Loader<K, V> cacheLoader, Marshaller<V> marshaller) {
+	DiskStorageFallbackLoader(Logger logger, FallbackFile.Resolver<K> cacheFileResolver, Loader<? super K, V> cacheLoader, Marshaller<V> marshaller) {
 		this.logger = logger;
 		this.cacheFileResolver = cacheFileResolver;
 		this.marshaller = marshaller;
 		this.cacheLoader = cacheLoader;
-		this.lockFiles = new LockFiles(LOCK_EXPIRES_AFTER, logger);
+		this.lockFiles = new LockFiles(logger);
 	}
 
 	@Override
@@ -72,7 +68,9 @@ public class DiskStorageFallbackLoader<K, V> implements Loader<K, V> {
 			return newCacheContent;
 
 		} catch (RuntimeException originalException) {
-			logger.warn("Failed to load cache-value from wrapped cache-loader because {}: '{}'. Attempting to load from disk as fallback mechanism. Enable debug-level to see stacktrace.", originalException.getClass().getSimpleName(), originalException.getMessage());
+			logger.warn("Failed to load cache-value from wrapped cache-loader because {}: '{}'. "
+				      + "Attempting to load from disk as fallback mechanism. Enable debug-level to see stacktrace.",
+				      originalException.getClass().getSimpleName(), originalException.getMessage());
 			if (logger.isDebugEnabled()) {
 				logger.debug("Stacktrace for failing cache loading:", originalException);
 			}
@@ -98,15 +96,14 @@ public class DiskStorageFallbackLoader<K, V> implements Loader<K, V> {
 					marshaller.write(newCacheContent, out);
 
 				} catch (IOException e) {
-					logger.error("Failed to write cache-value to file " + fallbackFile + ". Will not attempt write until next time cache expires and loads from wrapped cache-loader.", e);
+					logger.error("Failed to write cache-value to file {}. Will not attempt write "
+	    					   + "until next time cache expires and loads from wrapped cache-loader.",
+	    					   fallbackFile, e);
 					return;
 				}
-
 			}
 		});
 	}
-
-
 
 
 }
