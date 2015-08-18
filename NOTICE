@@ -14,7 +14,9 @@ This software includes third party software subject to the following licenses:
   Hamcrest library under New BSD License
   Joda-Time under Apache 2
   JUnit under Eclipse Public License 1.0
+  Mockito under The MIT License
   Motif under Apache License 2.0
+  Objenesis under Apache 2
   SLF4J API Module under MIT License
   SLF4J Simple Binding under MIT License
 

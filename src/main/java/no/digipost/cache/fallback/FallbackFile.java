@@ -15,8 +15,6 @@
  */
 package no.digipost.cache.fallback;
 
-import org.joda.time.Duration;
-import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -103,35 +101,6 @@ public class FallbackFile {
 	}
 
 
-	public boolean isLocked() {
-		return Files.exists(lock);
-	}
-
-	public boolean lockedLongerAgoThan(Duration duration) {
-		try {
-			Instant lastModifiedTime = new Instant(Files.getLastModifiedTime(lock).toMillis());
-			return lastModifiedTime.isBefore(Instant.now().minus(duration));
-		} catch (IOException e) {
-			LOG.warn("Failed to read last-modified time of lock-file. Will not check lock-file for expiration.");
-			return false;
-		}
-
-	}
-
-	public boolean silentDeleteLockFile() {
-		try {
-			LOG.trace("Deleting lockfile");
-			final boolean wasDeleted = Files.deleteIfExists(lock);
-			if (!wasDeleted) {
-				LOG.error("Failed to delete lock-file. This could indicate that the lock-file was deleted by another process. This should never happen if the other processes honor the lock-file.");
-			}
-			return wasDeleted;
-
-		} catch (IOException e) {
-			LOG.error("Failed to delete lock-file. Lock-file will be deleted when the lock expires. In the meantime, no process will be able to aquire the lock.", e);
-			return false;
-		}
-	}
 
 	@Override
 	public String toString() {
