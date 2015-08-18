@@ -16,6 +16,8 @@
 package no.digipost.cache.inmemory;
 
 import com.google.common.cache.CacheBuilder;
+import no.digipost.cache.loader.Callables;
+import no.digipost.cache.loader.Loader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,13 +60,27 @@ public final class Cache<K, V> {
 	}
 
 
+	/**
+	 * Retrieve a possibly cached value from the cache, or use the provided
+	 * {@code valueResolver} if the cache does not contain any value for the given
+	 * key.
+	 */
 	public V get(final K key, final Callable<V> valueResolver) {
+		return get(key, Callables.toLoader(valueResolver));
+	}
+
+	/**
+	 * Retrieve a possibly cached value from the cache, or use the provided
+	 * {@link Loader valueResolver} if the cache does not contain any value for the given
+	 * key.
+	 */
+	public V get(final K key, final Loader<? super K, V> valueResolver) {
 		try {
 	        return guavaCache.get(key, new Callable<V>() {
 				@Override
                 public V call() throws Exception {
 					LOG.debug("{} resolving value for key {}", name, key);
-					V value = valueResolver.call();
+					V value = valueResolver.load(key);
 					LOG.info("Loaded '{}' into '{}' cache for key '{}'", value, name, key);
 					return value;
                 }
