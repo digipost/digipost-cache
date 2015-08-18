@@ -13,18 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package no.digipost.cache.fallback;
+package no.digipost.cache.fallback.testharness;
 
-public interface CacheKeyNamingStrategy<K> {
+import no.digipost.cache.fallback.FileNamingStrategy;
 
-	/**
-	 * Generates a filename for the given key. The filename MUST be unique for all keys stored in the cache.
-	 *
-	 * The filename returned should not contain any special characters. Ideally matching pattern [a-z0-9]+ .
-	 *
-	 * @param key
-	 * @return
-	 */
-	String keyAsFilename(K key);
-
+public class ExactKeyAsFilename implements FileNamingStrategy<String> {
+	@Override
+	public String toFilename(String key) {
+		return key;
+	}
 }

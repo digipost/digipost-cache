@@ -15,6 +15,11 @@
  */
 package no.digipost.cache.fallback;
 
+import no.digipost.cache.fallback.testharness.ExactKeyAsFilename;
+import no.digipost.cache.fallback.testharness.FailingCacheLoader;
+import no.digipost.cache.fallback.testharness.OkCacheLoader;
+import no.digipost.cache.fallback.testharness.SimulatedLoaderFailure;
+import no.digipost.cache.loader.Loader;
 import no.digipost.util.FreezedTime;
 import org.joda.time.DateTime;
 import org.joda.time.Duration;
@@ -32,7 +37,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.*;
 
-import static no.digipost.cache.fallback.DiskStorageFallback.LOCK_EXPIRES_AFTER;
+import static no.digipost.cache.fallback.DiskStorageFallbackLoader.LOCK_EXPIRES_AFTER;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
 
@@ -50,14 +55,14 @@ public class DiskStorageFallbackTest {
 	public static final String FIRST_CONTENT = "first_content";
 	public static final String SECOND_CONTENT = "second_content";
 	public static final String THIRD_CONTENT = "third_content";
+
+	private final String key = getClass().getSimpleName() + "_cachekey";
 	private Path cache;
-	private Path lockFile;
 	private ExecutorService executor;
 
 	@Before
 	public void setUp() throws IOException {
-		cache = temporaryFolder.getRoot().toPath().resolve("cache");
-		lockFile = cache.resolveSibling(cache.getFileName() + ".lock");
+		cache = temporaryFolder.getRoot().toPath().resolve("fallback");
 		executor = Executors.newSingleThreadExecutor();
 	}
 
@@ -69,8 +74,7 @@ public class DiskStorageFallbackTest {
 
 	@Test
 	public void should_fail_if_underlying_loader_fails_and_not_stored_on_disk() throws Exception {
-		expectedException.expect(RuntimeException.class);
-		expectedException.expectMessage("Failed!");
+		expectedException.expect(SimulatedLoaderFailure.class);
 		newDiskFallback(new FailingCacheLoader()).call();
 	}
 
@@ -101,13 +105,16 @@ public class DiskStorageFallbackTest {
 		assertThat(newDiskFallback(new FailingCacheLoader()).call(), is(SECOND_CONTENT));
 	}
 
+
 	@Test
 	public void should_allow_update_of_disk_fallback_if_lock_expired() throws Exception {
-		final DiskStorageFallback<String> diskFallback = newDiskFallback(new OkCacheLoader(FIRST_CONTENT));
-		diskFallback.call(); //initialize disk fallback
+
+		FallbackFile.Resolver<String> fallbackFileResolver = new FallbackFile.Resolver<>(cache, new ExactKeyAsFilename());
+		Loader<String, String> diskFallback = new DiskStorageFallbackLoaderDecorator<>(cache, new ExactKeyAsFilename(), new SerializingMarshaller<String>()).decorate(new OkCacheLoader(FIRST_CONTENT));
+		diskFallback.load(key); //initialize disk fallback
 
 		// simulate lock
-		Files.createFile(diskFallback.lockFile);
+		Files.createFile(fallbackFileResolver.resolveFor(key).lock);
 
 		assertThat(newDiskFallback(new OkCacheLoader(SECOND_CONTENT)).call(), is(SECOND_CONTENT)); // not allowed update
 		assertThat(newDiskFallback(new FailingCacheLoader()).call(), is(FIRST_CONTENT));  // because second call was not allowed to update
@@ -118,13 +125,16 @@ public class DiskStorageFallbackTest {
 	}
 
 
-	private DiskStorageFallback<String> newDiskFallback(Callable<String> loader) {
+	private Callable<String> newDiskFallback(Callable<String> loader) {
 		return newDiskFallback(loader, new SerializingMarshaller<String>());
 	}
 
-	private DiskStorageFallback<String> newDiskFallback(Callable<String> loader, Marshaller<String> marshaller) {
-		return new DiskStorageFallback<>(cache, loader, marshaller);
+	private Callable<String> newDiskFallback(Callable<String> loader, Marshaller<String> marshaller) {
+		DiskStorageFallbackLoaderDecorator<String, String> fallbackLoaderFactory =
+				new DiskStorageFallbackLoaderDecorator<String, String>(cache, new ExactKeyAsFilename(), marshaller);
+		return new Loader.AsCallable<>(fallbackLoaderFactory.decorate(loader), key);
 	}
+
 
 	public static class WaitOnWriteMarshaller extends SerializingMarshaller<String> {
 
@@ -157,27 +167,5 @@ public class DiskStorageFallbackTest {
 		public void finishWriting() {
 			waitOnWrite.countDown();
 		}
-	}
-
-	public static class FailingCacheLoader implements Callable<String> {
-
-		@Override
-		public String call() throws Exception {
-			throw new RuntimeException("Failed!");
-		}
-	}
-
-	public static class OkCacheLoader implements Callable<String> {
-
-		private final String content;
-
-		OkCacheLoader(String content) {
-			this.content = content;
-		}
-		@Override
-		public String call() throws Exception {
-			return content;
-		}
-
 	}
 }

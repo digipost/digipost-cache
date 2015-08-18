@@ -22,9 +22,9 @@ public class SerializingMarshaller<T extends Serializable> implements Marshaller
 	@Override
 	public T read(InputStream input) {
 		try (ObjectInputStream ois = new ObjectInputStream(input)) {
-
-			return (T)ois.readObject();
-
+			@SuppressWarnings("unchecked")
+			T unserialized = (T) ois.readObject();
+			return unserialized;
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to read cache-content from input-stream.", e);
 		}
@@ -33,9 +33,7 @@ public class SerializingMarshaller<T extends Serializable> implements Marshaller
 	@Override
 	public void write(T toWrite, OutputStream output) {
 		try (ObjectOutputStream oos = new ObjectOutputStream(output)) {
-
 			oos.writeObject(toWrite);
-
 		} catch (IOException e) {
 			throw new RuntimeException("Failed to write cache-content to output-stream.", e);
 		}
