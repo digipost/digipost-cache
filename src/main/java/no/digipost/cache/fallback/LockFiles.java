@@ -37,17 +37,17 @@ public class LockFiles {
 	/**
 	 * Will run delegate if this thread is able to create lockfile. lockfile will be deleted again after delegate is run.
 	 * @param lockfile the marker-file to use to signal a lock
-	 * @param delegate will be run if lock is aquired successfully
+	 * @param delegate will be run if lock is acquired successfully
 	 * @return
 	 */
 	public boolean runIfLock(Path lockfile, Runnable delegate) {
-		boolean aquiredLock = aquireLock(lockfile);
-		if (!aquiredLock) {
+		boolean acquiredLock = acquireLock(lockfile);
+		if (!acquiredLock) {
 			return false;
 		}
 
 		try {
-			logger.trace("Aquired lock.");
+			logger.trace("Acquired lock.");
 			delegate.run();
 			return true;
 		} finally {
@@ -55,7 +55,7 @@ public class LockFiles {
 		}
 	}
 
-	private boolean aquireLock(Path lockfile) {
+	private boolean acquireLock(Path lockfile) {
 		// Check if lock is available. Removed expired locks.
 		if (isLocked(lockfile)) {
 
@@ -70,7 +70,7 @@ public class LockFiles {
 			}
 		}
 
-		// Attempt to aquire lock
+		// Attempt to acquire lock
 		try {
 			logger.trace("Creating lockfile");
 			Files.createFile(lockfile); // fails if lock-file exists
@@ -110,7 +110,7 @@ public class LockFiles {
 			return true;
 
 		} catch (IOException e) {
-			logger.error("Failed to delete lock-file. Lock-file will be deleted when the lock expires. In the meantime, no process will be able to aquire the lock.", e);
+			logger.error("Failed to delete lock-file. Lock-file will be deleted when the lock expires. In the meantime, no process will be able to acquire the lock.", e);
 			return false;
 		}
 	}
@@ -125,7 +125,7 @@ public class LockFiles {
 			return wasDeleted;
 
 		} catch (IOException e) {
-			logger.error("Failed to delete lock-file. Lock-file will be deleted when the lock expires. In the meantime, no process will be able to aquire the lock.", e);
+			logger.error("Failed to delete lock-file. Lock-file will be deleted when the lock expires. In the meantime, no process will be able to acquire the lock.", e);
 			return false;
 		}
 	}
