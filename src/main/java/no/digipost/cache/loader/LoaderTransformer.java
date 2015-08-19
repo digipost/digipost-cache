@@ -15,8 +15,6 @@
  */
 package no.digipost.cache.loader;
 
-import java.util.function.Function;
-
 public class LoaderTransformer<K, V, T> implements Loader<K, T> {
 	private final Loader<K, V> underlyingLoader;
 	private final Function<V, T> valueMapper;
@@ -32,6 +30,10 @@ public class LoaderTransformer<K, V, T> implements Loader<K, T> {
 
 	@Override
 	public T load(K key) throws Exception {
-		return valueMapper.apply(underlyingLoader.load(key));
+		return valueMapper.transform(underlyingLoader.load(key));
+	}
+
+	public interface Function<V,T> {
+		T transform(V value);
 	}
 }
