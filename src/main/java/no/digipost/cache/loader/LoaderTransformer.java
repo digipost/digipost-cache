@@ -16,16 +16,20 @@
 package no.digipost.cache.loader;
 
 public class LoaderTransformer<K, V, T> implements Loader<K, T> {
-	private final Loader<K, V> underlyingLoader;
-	private final Function<V, T> valueMapper;
 
-	public LoaderTransformer(Loader<K, V> underlyingLoader, Function<V, T> valueMapper) {
-		this.underlyingLoader = underlyingLoader;
-		this.valueMapper = valueMapper;
+	public static <K, V, T> LoaderTransformer<K, V, T> transform(Loader<K, V> underlyingLoader, Function<? super V, T> valueMapper) {
+		return new LoaderTransformer<>(underlyingLoader, valueMapper);
 	}
 
-	public static <K, V, T> LoaderTransformer transform(Loader<K, V> underlyingLoader, Function<V, T> valueMapper) {
-		return new LoaderTransformer(underlyingLoader, valueMapper);
+
+
+
+	private final Loader<K, V> underlyingLoader;
+	private final Function<? super V, T> valueMapper;
+
+	private LoaderTransformer(Loader<K, V> underlyingLoader, Function<? super V, T> valueMapper) {
+		this.underlyingLoader = underlyingLoader;
+		this.valueMapper = valueMapper;
 	}
 
 	@Override

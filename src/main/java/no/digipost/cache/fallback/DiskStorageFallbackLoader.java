@@ -19,7 +19,6 @@ import no.digipost.cache.loader.Loader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
@@ -49,41 +48,46 @@ public class DiskStorageFallbackLoader<K, V> implements Loader<K, V> {
 
 	@Override
 	public V load(K key) throws Exception {
-
 		FallbackFile fallbackFile = cacheFileResolver.resolveFor(key);
+		V newCacheContent;
 		try {
-			final V newCacheContent = cacheLoader.load(key);
+			newCacheContent = cacheLoader.load(key);
+		} catch (Exception loaderFailedException) {
+			return tryRecoverFailingLoader(fallbackFile, loaderFailedException);
+		}
 
-			try {
-				tryWriteToDiskIfLock(fallbackFile, newCacheContent);
-			} catch (RuntimeException e) {
-				LOG.error("Failed to write cache-value to disk (for use as fallback). "
-						+ "Will still return value from wrapped cache-loader.", e);
-			}
+		try {
+			tryWriteFallback(newCacheContent, fallbackFile);
+		} catch (Exception e) {
+			LOG.error("Failed to write cache-value to disk (for use as fallback). "
+					+ "Will still return value from wrapped cache-loader.", e);
+		}
+		return newCacheContent;
+	}
 
-			return newCacheContent;
 
-		} catch (RuntimeException originalException) {
-			LOG.warn("Failed to load cache-value from wrapped cache-loader because {}: '{}'. "
-				      + "Attempting to load from disk as fallback mechanism. Enable debug-level to see stacktrace.",
-				      originalException.getClass().getSimpleName(), originalException.getMessage());
-			if (LOG.isDebugEnabled()) {
-				LOG.debug("Stacktrace for failing cache loading:", originalException);
-			}
+	private V tryRecoverFailingLoader(FallbackFile fallbackFile, Exception loaderFailedException) throws Exception {
+		LOG.warn("Failed to load cache-value from wrapped cache-loader because {}: '{}'. "
+			      + "Attempting to load from disk as fallback mechanism. Enable debug-level to see stacktrace.",
+			      loaderFailedException.getClass().getSimpleName(), loaderFailedException.getMessage());
+		if (LOG.isDebugEnabled()) {
+			LOG.debug("Stacktrace for failing cache loading:", loaderFailedException);
+		}
 
-			try (InputStream fallbackContent = fallbackFile.read()) {
-				return marshaller.read(fallbackContent);
-			} catch (Exception exceptionWhileReadingFromDisk) {
-				LOG.error("Failed to read cache-value from disk. " +
-				          exceptionWhileReadingFromDisk.getClass().getSimpleName() + ": " +
-						  exceptionWhileReadingFromDisk.getMessage(), exceptionWhileReadingFromDisk);
-				originalException.addSuppressed(exceptionWhileReadingFromDisk);
-				throw originalException;
-			}
+		try (InputStream fallbackContent = fallbackFile.read()) {
+			return marshaller.read(fallbackContent);
+		} catch (Exception exceptionWhileReadingFromDisk) {
+			LOG.error("Failed to read cache-value from disk. " +
+			          exceptionWhileReadingFromDisk.getClass().getSimpleName() + ": " +
+					  exceptionWhileReadingFromDisk.getMessage(), exceptionWhileReadingFromDisk);
+			loaderFailedException.addSuppressed(exceptionWhileReadingFromDisk);
+			throw loaderFailedException;
 		}
 	}
 
-	private void tryWriteToDiskIfLock(final FallbackFile fallbackFile, final V newCacheContent) {
+
+
+	private void tryWriteFallback(final V newFallbackContent, final FallbackFile fallbackFile) {
 
 		fallbackFile.lock.runIfLock(new Runnable() {
 			@Override
@@ -91,12 +95,12 @@ public class DiskStorageFallbackLoader<K, V> implements Loader<K, V> {
 
 				try (OutputStream out = fallbackFile.write()) {
 
-					marshaller.write(newCacheContent, out);
+					marshaller.write(newFallbackContent, out);
 
-				} catch (IOException e) {
-					LOG.error("Failed to write cache-value to file {}. Will not attempt write "
-	    					   + "until next time cache expires and loads from wrapped cache-loader.",
-	    					   fallbackFile, e);
+				} catch (Exception e) {
+					LOG.error("Failed to write cache-value to file {}. Will not attempt write " +
+	    					  "until next time cache expires and loads from wrapped cache-loader.",
+	    					  fallbackFile, e);
 					return;
 				}
 			}
