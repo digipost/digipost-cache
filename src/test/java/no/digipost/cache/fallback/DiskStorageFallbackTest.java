@@ -33,7 +33,6 @@ import org.junit.rules.Timeout;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.*;
 
@@ -41,6 +40,7 @@ import static no.digipost.cache.fallback.FileNamingStrategy.USE_KEY_TOSTRING_AS_
 import static no.digipost.cache.loader.Callables.toLoader;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 
 public class DiskStorageFallbackTest {
 
@@ -49,7 +49,7 @@ public class DiskStorageFallbackTest {
 	@Rule
 	public ExpectedException expectedException = ExpectedException.none();
 	@Rule
-	public final FreezedTime time = new FreezedTime(DateTime.now().getMillis());
+	public final FreezedTime time = new FreezedTime(DateTime.now());
 	@Rule
 	public final Timeout timeout = new Timeout(10, TimeUnit.SECONDS);
 
@@ -115,11 +115,11 @@ public class DiskStorageFallbackTest {
 		diskFallback.load(key); //initialize disk fallback
 
 		// simulate lock
-		Files.createFile(new FallbackFile.Resolver<>(cache, USE_KEY_TOSTRING_AS_FILENAME).resolveFor(key).lock);
+		assertTrue(new FallbackFile.Resolver<>(cache, USE_KEY_TOSTRING_AS_FILENAME).resolveFor(key).lock.tryLock());
 
 		assertThat(newDiskFallback(new OkCacheLoader(SECOND_CONTENT)).call(), is(SECOND_CONTENT)); // not allowed update
 		assertThat(newDiskFallback(new FailingCacheLoader()).call(), is(FIRST_CONTENT));  // because second call was not allowed to update
-		time.wait(LockFiles.DEFAULT_LOCK_MAXIMUM_TIME_TO_LIVE.plus(Duration.standardSeconds(1)));
+		time.wait(LockFile.DEFAULT_EXPIRY_TIME.plus(Duration.standardSeconds(1)));
 
 		assertThat(newDiskFallback(new OkCacheLoader(THIRD_CONTENT)).call(), is(THIRD_CONTENT)); // allowed update, lock expired
 		assertThat(newDiskFallback(new FailingCacheLoader()).call(), is(THIRD_CONTENT));

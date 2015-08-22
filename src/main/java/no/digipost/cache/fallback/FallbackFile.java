@@ -36,16 +36,17 @@ import static java.nio.file.StandardOpenOption.WRITE;
 
 public class FallbackFile {
 
-	public final Path cacheValue;
-	public final Path lock;
+	static final Logger LOG = LoggerFactory.getLogger(FallbackFile.class);
 
-	private static final Logger LOG = LoggerFactory.getLogger(FallbackFile.class);
+	public final Path cacheValue;
+	public final LockFile lock;
+
 	private final Random random = new SecureRandom();
 	private final AtomicBoolean written;
 
 	FallbackFile(Path file) {
 		this.cacheValue = file;
-		this.lock = cacheValue.resolveSibling(cacheValue.getFileName() + ".lock");
+		this.lock = new LockFile(file);
 		this.written = new AtomicBoolean(Files.exists(cacheValue));
 	}
 
@@ -69,6 +70,7 @@ public class FallbackFile {
 		}
 		return Files.newInputStream(cacheValue);
 	}
+
 
 
 	/**

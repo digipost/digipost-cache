@@ -27,12 +27,9 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.rules.Timeout;
-import org.mockito.Matchers;
-import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,7 +39,6 @@ import java.util.concurrent.Executors;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static no.digipost.cache.fallback.FileNamingStrategy.USE_KEY_TOSTRING_AS_FILENAME;
 import static no.digipost.cache.loader.Callables.toLoader;
-import static org.mockito.Matchers.any;
 
 public class DiskStorageConcurrencyTest {
 
@@ -55,9 +51,6 @@ public class DiskStorageConcurrencyTest {
 	@Rule
 	public final MockitoRule mockito = MockitoJUnit.rule();
 
-	@Mock
-	private Logger logger;
-
 	private ListeningExecutorService executorService;
 
 	@Before
@@ -67,7 +60,6 @@ public class DiskStorageConcurrencyTest {
 
 	@Test
 	public void massive_concurrency() throws Exception {
-
 		String key = getClass().getSimpleName();
 		LoaderDecorator<String, String> cacheLoaderFactory = new DiskStorageFallbackLoaderDecorator<>(temporaryFolder.getRoot().toPath(), USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>());
 		Callable<String> fallbackLoader = new Loader.AsCallable<>(cacheLoaderFactory.decorate(toLoader(new RandomAnswerCacheLoader())), key);
@@ -79,16 +71,9 @@ public class DiskStorageConcurrencyTest {
 		}
 		// should not throw an exception because either result is returned som underlying cache-loader or the disk-copy
 		Futures.allAsList(futures).get();
-		assertNoErrors(this.logger);
+		LoggerFactory.getLogger(getClass()).error("TODO: implement verification that no error has occured.");
 	}
 
-	private void assertNoErrors(Logger logger) {
-		Mockito.verify(logger, Mockito.times(0)).error(Matchers.anyString());
-		Mockito.verify(logger, Mockito.times(0)).error(Matchers.anyString(), Matchers.anyObject());
-		Mockito.verify(logger, Mockito.times(0)).error(Matchers.anyString(), Matchers.anyObject(), Matchers.anyObject());
-		Mockito.verify(logger, Mockito.times(0)).error(Matchers.anyString(), any(Object[].class));
-		Mockito.verify(logger, Mockito.times(0)).error(Matchers.anyString(), any(Throwable.class));
-	}
 
 	@After
 	public void shutdownExecutor() {
