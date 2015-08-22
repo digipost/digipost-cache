@@ -29,7 +29,7 @@ import java.nio.file.Path;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static no.digipost.cache.fallback.FileNamingStrategy.USE_KEY_TOSTRING_AS_FILENAME;
+import static no.digipost.cache.fallback.FallbackFileNamingStrategy.USE_KEY_TOSTRING_AS_FILENAME;
 import static no.digipost.cache.loader.Callables.toLoader;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;

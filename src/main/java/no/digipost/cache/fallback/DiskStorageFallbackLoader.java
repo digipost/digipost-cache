@@ -19,6 +19,7 @@ import no.digipost.cache.loader.Loader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
@@ -33,17 +34,22 @@ import java.io.OutputStream;
  */
 public class DiskStorageFallbackLoader<K, V> implements Loader<K, V> {
 
-	static final Logger LOG = LoggerFactory.getLogger(DiskStorageFallbackLoader.class);
+	private static final Logger LOG = LoggerFactory.getLogger(DiskStorageFallbackLoader.class);
 
 	private final FallbackFile.Resolver<K> cacheFileResolver;
 	private final Marshaller<V> marshaller;
 	private final Loader<? super K, V> cacheLoader;
+	private final FallbackWriteFailedHandler<? super K, ? super V> fallbackWriterFailedHandler;
 
 
-	DiskStorageFallbackLoader(FallbackFile.Resolver<K> cacheFileResolver, Loader<? super K, V> cacheLoader, Marshaller<V> marshaller) {
+	DiskStorageFallbackLoader(
+			FallbackFile.Resolver<K> cacheFileResolver, Loader<? super K, V> cacheLoader,
+			Marshaller<V> marshaller, FallbackWriteFailedHandler<? super K, ? super V> fallbackWriteFailedHandler) {
+
 		this.cacheFileResolver = cacheFileResolver;
 		this.marshaller = marshaller;
 		this.cacheLoader = cacheLoader;
+		this.fallbackWriterFailedHandler = fallbackWriteFailedHandler;
 	}
 
 	@Override
@@ -59,8 +65,7 @@ public class DiskStorageFallbackLoader<K, V> implements Loader<K, V> {
 		try {
 			tryWriteFallback(newCacheContent, fallbackFile);
 		} catch (Exception e) {
-			LOG.error("Failed to write cache-value to disk (for use as fallback). "
-					+ "Will still return value from wrapped cache-loader.", e);
+			fallbackWriterFailedHandler.handle(key, newCacheContent, e);
 		}
 		return newCacheContent;
 	}
@@ -76,36 +81,27 @@ public class DiskStorageFallbackLoader<K, V> implements Loader<K, V> {
 
 		try (InputStream fallbackContent = fallbackFile.read()) {
 			return marshaller.read(fallbackContent);
-		} catch (Exception exceptionWhileReadingFromDisk) {
-			LOG.error("Failed to read cache-value from disk. " +
-			          exceptionWhileReadingFromDisk.getClass().getSimpleName() + ": " +
-					  exceptionWhileReadingFromDisk.getMessage(), exceptionWhileReadingFromDisk);
-			loaderFailedException.addSuppressed(exceptionWhileReadingFromDisk);
+		} catch (IOException fallbackReadException) {
+			loaderFailedException.addSuppressed(fallbackReadException);
+			LOG.warn("Regular cache value loading failed because {}: '{}', and attempt to read " +
+					 "fallback value from disk also failed because {}: '{}'",
+					 loaderFailedException.getClass().getSimpleName(), loaderFailedException.getMessage(),
+			         fallbackReadException.getClass().getSimpleName(), fallbackReadException.getMessage());
 			throw loaderFailedException;
 		}
 	}
 
 
 
-	private void tryWriteFallback(final V newFallbackContent, final FallbackFile fallbackFile) {
-
-		fallbackFile.lock.runIfLock(new Runnable() {
+	private void tryWriteFallback(final V newFallbackContent, final FallbackFile fallbackFile) throws IOException {
+		fallbackFile.lock.runIfLock(new ThrowingRunnable<IOException>() {
 			@Override
-			public void run() {
-
+			public void run() throws IOException {
 				try (OutputStream out = fallbackFile.write()) {
-
 					marshaller.write(newFallbackContent, out);
-
-				} catch (Exception e) {
-					LOG.error("Failed to write cache-value to file {}. Will not attempt write " +
-	    					  "until next time cache expires and loads from wrapped cache-loader.",
-	    					  fallbackFile, e);
-					return;
 				}
 			}
 		});
 	}
-
 
 }

@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 
 import static org.joda.time.Duration.standardMinutes;
@@ -54,13 +55,14 @@ public class LockFile {
 	 * Will run delegate if this thread is able to create given {@code lockfile}.
 	 * The {@code lockfile} will be deleted again after delegate is run.
 	 *
-	 * @param delegate will be run if lock is acquired successfully
-	 * @return
+	 * @param operation will be run if lock is acquired successfully
+	 * @return {@code true} if the operation was run, {@code false} if not because
+	 *         the lock was not available.
 	 */
-	public boolean runIfLock(Runnable delegate) {
+	public <X extends Exception> boolean runIfLock(ThrowingRunnable<X> operation) throws X {
 		if (tryLock()) {
 			try {
-				delegate.run();
+				operation.run();
 				return true;
 			} finally {
 				release();
@@ -95,13 +97,11 @@ public class LockFile {
 		if (isLocked()) {
 			if (isExpired()) {
 				LOG.warn("Lock-file is considered to be expired since it is older than {}. Deleting it. " +
-                            "There may be some problematic code which are unable to correctly release an aquired lock.",
-                            maximumLockingDuration);
-				if (!tryUnlockExpired()) {
-					return false;
-				}
+                         "There may be some problematic code which are unable to correctly release an aquired lock.",
+                         maximumLockingDuration);
+				releaseExpired();
 			} else {
-				LOG.debug("Another process is updating the cache-value. Skipping write.");
+				LOG.debug("Another process is updating the cache-value. Not yielding lock.");
 				return false;
 			}
 		}
@@ -116,10 +116,7 @@ public class LockFile {
 			LOG.debug("Failed to create lock-file. Means that another process created it. Will not run delegate.");
 			return false;
 		} catch (IOException e) {
-			LOG.error("Unexpected error when creating lock-file. Will not run delegate. In the unlikely event that " +
-					"the lock-file indeed was created, it will block the delegate-operation until this lock has expired (in {}).",
-					maximumLockingDuration, e);
-			return false;
+			throw new UnableToAcquireLock(e, maximumLockingDuration);
 		}
 	}
 
@@ -132,43 +129,60 @@ public class LockFile {
 			Instant lastModifiedTime = new Instant(Files.getLastModifiedTime(file).toMillis());
 			return lastModifiedTime.isBefore(Instant.now().minus(maximumLockingDuration));
 		} catch (IOException e) {
-			LOG.warn("Failed to read last-modified time of lock-file. Will not check lock-file for expiration.");
+			LOG.warn("Failed to read last-modified time of lock-file. Treats is as not expired.");
 			return false;
 		}
 	}
 
-	private boolean tryUnlockExpired() {
+	private boolean releaseExpired() {
 		try {
 			LOG.trace("Deleting expired lockfile");
-			final boolean wasDeleted = Files.deleteIfExists(file);
-			if (!wasDeleted) {
-				LOG.info("Another process appears to have deleted the expired lock-file. Continuing.");
+			if (!Files.deleteIfExists(file)) {
+				LOG.info("Another process may have deleted the expired lock-file. This is expected behavior, " +
+						 "and continuing normally.");
 			}
 			return true;
 
 		} catch (IOException e) {
-			LOG.error("Failed to delete lock-file. Lock-file will be deleted when the lock expires. In the meantime, no process will be able to acquire the lock.", e);
-			return false;
+			throw new UnableToReleaseLock(e, maximumLockingDuration);
 		}
 	}
 
-	public boolean release() {
+	public void release() {
 		try {
 			LOG.trace("Deleting lockfile");
-			final boolean wasDeleted = Files.deleteIfExists(file);
-			if (!wasDeleted) {
-				LOG.error("Failed to delete lock-file {}. "
-						+ "This could indicate that the lock-file was deleted by another process. "
-						+ "This should never happen if the other processes honor the lock-file.",
-						file);
-			}
-			return wasDeleted;
-
+			Files.delete(file);
+		} catch (NoSuchFileException e) {
+			throw new TryingToDeleteNonExistingLockFile(e);
 		} catch (IOException e) {
-			LOG.error("Failed to delete lock-file {} because {}: '{}'. Lock-file will be deleted "
-					+ "when the lock expires. In the meantime, no process will be able to aquire the lock.",
-					file, e.getClass().getSimpleName(), e.getMessage(), e);
-			return false;
+			throw new UnableToReleaseLock(e, maximumLockingDuration);
+		}
+	}
+
+	public static class UnableToAcquireLock extends RuntimeException {
+		private UnableToAcquireLock(Exception cause, Duration lockExpiryDuration) {
+			super("Got " + cause.getClass().getSimpleName() + ": '" + cause.getMessage() +
+				  "' when trying to create lock-file, and thus the lock will not be yielded. " +
+				  "In the unlikely event that the lock-file was created after all, it will prevent " +
+				  "anyone from acquiring the lock until it has expired in " + lockExpiryDuration,
+				  cause);
+		}
+	}
+
+	public static class TryingToDeleteNonExistingLockFile extends RuntimeException {
+		public TryingToDeleteNonExistingLockFile(NoSuchFileException cause) {
+			super("Got " + cause.getClass().getSimpleName() + ": '" + cause.getMessage() +
+				  "' when trying to delete lock-file. This could indicate that the lock-file " +
+				  "was deleted by another process, and indicates a bug. Tt should never happen " +
+				  "as long as other processes honor the lock-file.", cause);
+		}
+	}
+
+	public static class UnableToReleaseLock extends RuntimeException {
+		private UnableToReleaseLock(Exception cause, Duration lockExpiryDuration) {
+			super("Unable to delete lock-file because " + cause.getClass().getSimpleName() + ": '" +
+			      cause.getMessage() + "'. The lock may now not be acquired until it expires " +
+	      		  "(expiry time: " + lockExpiryDuration + ").", cause);
 		}
 	}
 

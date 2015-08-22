@@ -26,14 +26,25 @@ import java.nio.file.Path;
 public class DiskStorageFallbackLoaderDecorator<K, V> implements LoaderDecorator<K, V> {
 
 	private final Path fallbackDirectory;
-	private final FileNamingStrategy<? super K> fallbackFileNamingStrategy;
+	private final FallbackFileNamingStrategy<? super K> fallbackFileNamingStrategy;
 	private final Marshaller<V> marshaller;
+	private final FallbackWriteFailedHandler<? super K, ? super V> fallbackWriteFailedHandler;
 
 
-	public DiskStorageFallbackLoaderDecorator(Path fallbackDirectory, FileNamingStrategy<? super K> fallbackFileNamingStrategy, Marshaller<V> marshaller) {
+	public DiskStorageFallbackLoaderDecorator(
+			Path fallbackDirectory, FallbackFileNamingStrategy<? super K> fallbackFileNamingStrategy, Marshaller<V> marshaller) {
+
+		this(fallbackDirectory, fallbackFileNamingStrategy, marshaller, new FallbackWriteFailedHandler.LogAsError());
+	}
+
+	public DiskStorageFallbackLoaderDecorator(
+			Path fallbackDirectory, FallbackFileNamingStrategy<? super K> fallbackFileNamingStrategy, Marshaller<V> marshaller,
+			FallbackWriteFailedHandler<? super K, ? super V> fallbackWriteFailedHandler) {
+
 		this.fallbackDirectory = fallbackDirectory;
 		this.fallbackFileNamingStrategy = fallbackFileNamingStrategy;
 		this.marshaller = marshaller;
+		this.fallbackWriteFailedHandler = fallbackWriteFailedHandler;
 	}
 
 	@Override
@@ -48,7 +59,7 @@ public class DiskStorageFallbackLoaderDecorator<K, V> implements LoaderDecorator
 			throw new RuntimeException("Unable to prepare the directory to store cache values for fallback: "
 					+ e.getClass().getSimpleName() + " '" + e.getMessage() + "'", e);
 		}
-		return new DiskStorageFallbackLoader<K, V>(resolver, loader, marshaller);
+		return new DiskStorageFallbackLoader<K, V>(resolver, loader, marshaller, fallbackWriteFailedHandler);
 	}
 
 }

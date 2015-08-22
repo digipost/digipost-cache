@@ -36,18 +36,18 @@ import static java.nio.file.StandardOpenOption.WRITE;
 
 public class FallbackFile {
 
-	static final Logger LOG = LoggerFactory.getLogger(FallbackFile.class);
+	private static final Logger LOG = LoggerFactory.getLogger(FallbackFile.class);
 
-	public final Path cacheValue;
+	public final Path file;
 	public final LockFile lock;
 
 	private final Random random = new SecureRandom();
 	private final AtomicBoolean written;
 
 	FallbackFile(Path file) {
-		this.cacheValue = file;
+		this.file = file;
 		this.lock = new LockFile(file);
-		this.written = new AtomicBoolean(Files.exists(cacheValue));
+		this.written = new AtomicBoolean(Files.exists(file));
 	}
 
 
@@ -57,18 +57,14 @@ public class FallbackFile {
 	 * @return an {@link InputStream} for reading the contents of the fallback file.
 	 */
 	public InputStream read() throws IOException {
-		boolean fallbackFileExists = Files.exists(cacheValue);
+		boolean fallbackFileExists = Files.exists(file);
 		written.compareAndSet(false, fallbackFileExists);
 		if (!written.get()) {
-			throw new FileNotFoundException(
-					"The fallback was not found on disk because it has not been written yet. This may happen in rare circumstances " +
-					"if the Loader has never successfully produced any value.");
+			throw new FallbackFileNotYetCreated(file);
+		} else if (!fallbackFileExists) {
+			throw new FileNotFoundException("File " + file + " not found, even though it is supposed to have been written.");
 		}
-		if (!fallbackFileExists) {
-			LOG.error("Fallback-value has been written to disk, but the file for it, {}, does not exist.", cacheValue);
-			throw new FileNotFoundException("File " + cacheValue + " not found on disk, even though the fallback file is supposed to have been written.");
-		}
-		return Files.newInputStream(cacheValue);
+		return Files.newInputStream(file);
 	}
 
 
@@ -83,7 +79,7 @@ public class FallbackFile {
 		if (Files.exists(tempfile)) {
 			throw new FileAlreadyExistsException(tempfile.toString(), null,
 					"Temp-file used for writing cache already exists. " +
-					"If this happens, the algorithm for generating temp-file path needs improving.");
+					"This is a bug. The algorithm for generating temp-file path needs improving.");
 		}
 		final OutputStream stream = Files.newOutputStream(tempfile, CREATE_NEW, WRITE);
 		return new OutputStream() {
@@ -102,9 +98,10 @@ public class FallbackFile {
 				try {
 					stream.close();
 					if (LOG.isDebugEnabled()) {
-						LOG.debug("Done writing cachevalue to disk. Comitting by renaming {} to {} (directory: {})", tempfile.getFileName(), cacheValue.getFileName(), cacheValue.getParent());
+						LOG.debug("Done writing cachevalue to disk. Comitting by renaming {} to {} (directory: {})",
+								  tempfile.getFileName(), file.getFileName(), file.getParent());
 					}
-					Files.move(tempfile, cacheValue, ATOMIC_MOVE, REPLACE_EXISTING);
+					Files.move(tempfile, file, ATOMIC_MOVE, REPLACE_EXISTING);
 					written.set(true);
 				} finally {
 					Files.deleteIfExists(tempfile);
@@ -116,11 +113,11 @@ public class FallbackFile {
 
 	@Override
 	public String toString() {
-		return "Fallback-file " + cacheValue;
+		return "Fallback-file " + file;
 	}
 
 	private Path getTempfile() {
-		return cacheValue.resolveSibling(cacheValue.getFileName() + "." + System.currentTimeMillis() + "." + randomString(10));
+		return file.resolveSibling(file.getFileName() + "." + System.currentTimeMillis() + "." + randomString(10));
 	}
 
 	private String randomString(int length) {
@@ -135,15 +132,23 @@ public class FallbackFile {
 	public static class Resolver<K> {
 
 		private final Path directory;
-		private final FileNamingStrategy<? super K> fileNamingStrategy;
+		private final FallbackFileNamingStrategy<? super K> fileNamingStrategy;
 
-		public Resolver(Path directory, FileNamingStrategy<? super K> fileNamingStrategy) {
+		public Resolver(Path directory, FallbackFileNamingStrategy<? super K> fileNamingStrategy) {
 			this.directory = directory;
 			this.fileNamingStrategy = fileNamingStrategy;
 		}
 
 		public FallbackFile resolveFor(K cacheKey) {
 			return new FallbackFile(directory.resolve(fileNamingStrategy.toFilename(cacheKey)));
+		}
+	}
+
+	public static class FallbackFileNotYetCreated extends IOException {
+		private FallbackFileNotYetCreated(Path file) {
+			super("The fallback file " + file + " has not been created yet. " +
+				  "This may happen in rare circumstances " +
+				  "if the Loader has never successfully produced any value.");
 		}
 	}
 }

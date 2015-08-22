@@ -29,7 +29,6 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.rules.Timeout;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,8 +36,10 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
-import static no.digipost.cache.fallback.FileNamingStrategy.USE_KEY_TOSTRING_AS_FILENAME;
+import static no.digipost.cache.fallback.FallbackFileNamingStrategy.USE_KEY_TOSTRING_AS_FILENAME;
 import static no.digipost.cache.loader.Callables.toLoader;
+import static org.hamcrest.Matchers.hasSize;
+import static org.junit.Assert.assertThat;
 
 public class DiskStorageConcurrencyTest {
 
@@ -61,7 +62,8 @@ public class DiskStorageConcurrencyTest {
 	@Test
 	public void massive_concurrency() throws Exception {
 		String key = getClass().getSimpleName();
-		LoaderDecorator<String, String> cacheLoaderFactory = new DiskStorageFallbackLoaderDecorator<>(temporaryFolder.getRoot().toPath(), USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>());
+		LoaderDecorator<String, String> cacheLoaderFactory = new DiskStorageFallbackLoaderDecorator<>(
+				temporaryFolder.getRoot().toPath(), USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>(), new FallbackWriteFailedHandler.Rethrow());
 		Callable<String> fallbackLoader = new Loader.AsCallable<>(cacheLoaderFactory.decorate(toLoader(new RandomAnswerCacheLoader())), key);
 		fallbackLoader.call(); // initialize disk-fallback
 
@@ -70,8 +72,7 @@ public class DiskStorageConcurrencyTest {
 			futures.add(executorService.submit(fallbackLoader));
 		}
 		// should not throw an exception because either result is returned som underlying cache-loader or the disk-copy
-		Futures.allAsList(futures).get();
-		LoggerFactory.getLogger(getClass()).error("TODO: implement verification that no error has occured.");
+		assertThat(Futures.allAsList(futures).get(), hasSize(10_000));
 	}
 
 
