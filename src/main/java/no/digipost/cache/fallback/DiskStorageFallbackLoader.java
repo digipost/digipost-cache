@@ -81,7 +81,7 @@ public class DiskStorageFallbackLoader<K, V> implements Loader<K, V> {
 
 		try (InputStream fallbackContent = fallbackFile.read()) {
 			return marshaller.read(fallbackContent);
-		} catch (IOException fallbackReadException) {
+		} catch (Exception fallbackReadException) {
 			loaderFailedException.addSuppressed(fallbackReadException);
 			LOG.warn("Regular cache value loading failed because {}: '{}', and attempt to read " +
 					 "fallback value from disk also failed because {}: '{}'",
