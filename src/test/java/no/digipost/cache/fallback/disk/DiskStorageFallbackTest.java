@@ -13,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package no.digipost.cache.fallback;
+package no.digipost.cache.fallback.disk;
 
+import no.digipost.cache.fallback.marshall.Marshaller;
+import no.digipost.cache.fallback.marshall.SerializingMarshaller;
 import no.digipost.cache.fallback.testharness.FailingCacheLoader;
 import no.digipost.cache.fallback.testharness.OkCacheLoader;
 import no.digipost.cache.fallback.testharness.SimulatedLoaderFailure;
@@ -36,7 +38,7 @@ import java.io.OutputStream;
 import java.nio.file.Path;
 import java.util.concurrent.*;
 
-import static no.digipost.cache.fallback.FallbackFileNamingStrategy.USE_KEY_TOSTRING_AS_FILENAME;
+import static no.digipost.cache.fallback.disk.FallbackFileNamingStrategy.USE_KEY_TOSTRING_AS_FILENAME;
 import static no.digipost.cache.loader.Callables.toLoader;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
@@ -110,7 +112,7 @@ public class DiskStorageFallbackTest {
 	@Test
 	public void should_allow_update_of_disk_fallback_if_lock_expired() throws Exception {
 
-		LoaderDecorator<String, String> diskFallbackDecorator = new DiskStorageFallbackLoaderDecorator<>(cache, USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>());
+		LoaderDecorator<String, String> diskFallbackDecorator = new LoaderWithDiskFallbackDecorator<>(cache, USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>());
 		Loader<String, String> diskFallback = diskFallbackDecorator.decorate(toLoader(new OkCacheLoader(FIRST_CONTENT)));
 		diskFallback.load(key); //initialize disk fallback
 
@@ -131,7 +133,7 @@ public class DiskStorageFallbackTest {
 	}
 
 	private Callable<String> newDiskFallback(Callable<String> loader, Marshaller<String> marshaller) {
-		LoaderDecorator<String, String> fallbackLoaderFactory =	new DiskStorageFallbackLoaderDecorator<String, String>(cache, USE_KEY_TOSTRING_AS_FILENAME, marshaller);
+		LoaderDecorator<String, String> fallbackLoaderFactory =	new LoaderWithDiskFallbackDecorator<String, String>(cache, USE_KEY_TOSTRING_AS_FILENAME, marshaller);
 		return new Loader.AsCallable<>(fallbackLoaderFactory.decorate(toLoader(loader)), key);
 	}
 
@@ -142,12 +144,12 @@ public class DiskStorageFallbackTest {
 		private CountDownLatch waitBeforeStartWrite = new CountDownLatch(1);
 
 		@Override
-		public String read(InputStream input) {
+		public String read(InputStream input) throws Exception {
 			return super.read(input);
 		}
 
 		@Override
-		public void write(String toWrite, OutputStream output) {
+		public void write(String toWrite, OutputStream output) throws IOException {
 			waitBeforeStartWrite.countDown();
 			try {
 				waitOnWrite.await();

@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package no.digipost.cache.fallback;
+package no.digipost.cache.fallback.disk;
 
+import no.digipost.cache.function.ThrowingRunnable;
 import org.joda.time.Duration;
 import org.joda.time.Instant;
 import org.slf4j.Logger;
@@ -42,11 +43,11 @@ public class LockFile {
 	private final Duration maximumLockingDuration;
 
 
-	public LockFile(Path forFile) {
+	LockFile(Path forFile) {
 		this(forFile, DEFAULT_EXPIRY_TIME);
 	}
 
-	public LockFile(Path forFile, Duration maximumLockingDuration) {
+	LockFile(Path forFile, Duration maximumLockingDuration) {
 		this.file = forFile.resolveSibling(forFile.getFileName() + LOCK_FILE_POSTFIX);
 		this.maximumLockingDuration = maximumLockingDuration;
 	}

@@ -13,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package no.digipost.cache.fallback;
+package no.digipost.cache.fallback.disk;
 
+import no.digipost.cache.fallback.disk.LoaderWithDiskFallbackDecorator;
+import no.digipost.cache.fallback.marshall.SerializingMarshaller;
 import no.digipost.cache.fallback.testharness.FailingCacheLoader;
 import no.digipost.cache.fallback.testharness.OkCacheLoader;
 import no.digipost.cache.inmemory.Cache;
@@ -29,7 +31,7 @@ import java.nio.file.Path;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static no.digipost.cache.fallback.FallbackFileNamingStrategy.USE_KEY_TOSTRING_AS_FILENAME;
+import static no.digipost.cache.fallback.disk.FallbackFileNamingStrategy.USE_KEY_TOSTRING_AS_FILENAME;
 import static no.digipost.cache.loader.Callables.toLoader;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertThat;
@@ -49,7 +51,7 @@ public class CacheWithDiskFallbackTest {
 
 	@Test
 	public void test_single_cached() throws IOException {
-		LoaderDecorator<String, String> diskFallbackDecorator = new DiskStorageFallbackLoaderDecorator<>(
+		LoaderDecorator<String, String> diskFallbackDecorator = new LoaderWithDiskFallbackDecorator<>(
 				fallbackFolder.getRoot().toPath(), USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>());
 
 		SingleCached<String> cache = new SingleCached<>(diskFallbackDecorator.decorate(toLoader(new FailSecondCacheLoader(FIRST_VALUE))));
@@ -62,7 +64,7 @@ public class CacheWithDiskFallbackTest {
 	public void test_cache_with_multiple_keys() throws IOException {
 		final Path cacheDir = fallbackFolder.newFolder().toPath();
 		final Cache<String, String> cache = new Cache<>();
-		final LoaderDecorator<String, String> diskFallbackFactory = new DiskStorageFallbackLoaderDecorator<>(cacheDir, USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>());
+		final LoaderDecorator<String, String> diskFallbackFactory = new LoaderWithDiskFallbackDecorator<>(cacheDir, USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>());
 
 		// initialize cache
 		cache.get(KEY1, diskFallbackFactory.decorate(toLoader(new OkCacheLoader(CONTENT1))));

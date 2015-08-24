@@ -13,11 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package no.digipost.cache.fallback;
+package no.digipost.cache.fallback.disk;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import no.digipost.cache.fallback.FallbackKeeperFailedHandler;
+import no.digipost.cache.fallback.FallbackKeeperFailedHandler.Rethrow;
+import no.digipost.cache.fallback.disk.LoaderWithDiskFallbackDecorator;
+import no.digipost.cache.fallback.marshall.SerializingMarshaller;
 import no.digipost.cache.fallback.testharness.RandomAnswerCacheLoader;
 import no.digipost.cache.loader.Loader;
 import no.digipost.cache.loader.LoaderDecorator;
@@ -36,7 +40,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
-import static no.digipost.cache.fallback.FallbackFileNamingStrategy.USE_KEY_TOSTRING_AS_FILENAME;
+import static no.digipost.cache.fallback.disk.FallbackFileNamingStrategy.USE_KEY_TOSTRING_AS_FILENAME;
 import static no.digipost.cache.loader.Callables.toLoader;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.Assert.assertThat;
@@ -62,8 +66,8 @@ public class DiskStorageConcurrencyTest {
 	@Test
 	public void massive_concurrency() throws Exception {
 		String key = getClass().getSimpleName();
-		LoaderDecorator<String, String> cacheLoaderFactory = new DiskStorageFallbackLoaderDecorator<>(
-				temporaryFolder.getRoot().toPath(), USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>(), new FallbackWriteFailedHandler.Rethrow());
+		LoaderDecorator<String, String> cacheLoaderFactory = new LoaderWithDiskFallbackDecorator<>(
+				temporaryFolder.getRoot().toPath(), USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>(), new FallbackKeeperFailedHandler.Rethrow());
 		Callable<String> fallbackLoader = new Loader.AsCallable<>(cacheLoaderFactory.decorate(toLoader(new RandomAnswerCacheLoader())), key);
 		fallbackLoader.call(); // initialize disk-fallback
 

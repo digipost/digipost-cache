@@ -13,23 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package no.digipost.cache.fallback;
+package no.digipost.cache.fallback.marshall;
 
-public interface ThrowingRunnable<X extends Exception> {
-	void run() throws X;
+import java.io.*;
 
+public class SerializingMarshaller<T extends Serializable> implements Marshaller<T> {
 
-	class OfRunnable implements ThrowingRunnable<RuntimeException>, Runnable {
-
-		private final Runnable runnable;
-
-		public OfRunnable(Runnable runnable) {
-			this.runnable = runnable;
+	@Override
+	public T read(InputStream input) throws Exception {
+		try (ObjectInputStream ois = new ObjectInputStream(input)) {
+			@SuppressWarnings("unchecked")
+			T unserialized = (T) ois.readObject();
+			return unserialized;
 		}
+	}
 
-		@Override
-		public void run() {
-			runnable.run();
+	@Override
+	public void write(T toWrite, OutputStream output) throws IOException {
+		try (ObjectOutputStream oos = new ObjectOutputStream(output)) {
+			oos.writeObject(toWrite);
 		}
 	}
 }

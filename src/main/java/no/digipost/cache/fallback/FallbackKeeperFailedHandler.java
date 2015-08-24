@@ -18,13 +18,13 @@ package no.digipost.cache.fallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public interface FallbackWriteFailedHandler<K, V> {
+public interface FallbackKeeperFailedHandler<K, V> {
 	void handle(K cacheKey, V value, Exception cause);
 
 
-	class LogAsError implements FallbackWriteFailedHandler<Object, Object> {
+	class LogAsError implements FallbackKeeperFailedHandler<Object, Object> {
 
-		private static final Logger LOG = LoggerFactory.getLogger(FallbackWriteFailedHandler.LogAsError.class);
+		private static final Logger LOG = LoggerFactory.getLogger(FallbackKeeperFailedHandler.LogAsError.class);
 
 		@Override
 		public void handle(Object cacheKey, Object value, Exception cause) {
@@ -36,7 +36,7 @@ public interface FallbackWriteFailedHandler<K, V> {
 		}
 	}
 
-	class Rethrow implements FallbackWriteFailedHandler<Object, Object> {
+	class Rethrow implements FallbackKeeperFailedHandler<Object, Object> {
 		@Override
 		public void handle(Object cacheKey, Object value, Exception cause) {
 			throw new FallbackWriteFailed(cause, cacheKey, value);

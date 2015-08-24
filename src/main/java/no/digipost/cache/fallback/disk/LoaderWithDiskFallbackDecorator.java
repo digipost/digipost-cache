@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package no.digipost.cache.fallback;
+package no.digipost.cache.fallback.disk;
 
-import no.digipost.cache.fallback.FallbackFile.Resolver;
+import no.digipost.cache.fallback.FallbackKeeperFailedHandler;
+import no.digipost.cache.fallback.LoaderWithFallback;
+import no.digipost.cache.fallback.marshall.Marshaller;
 import no.digipost.cache.loader.Loader;
 import no.digipost.cache.loader.LoaderDecorator;
 
@@ -23,23 +25,23 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public class DiskStorageFallbackLoaderDecorator<K, V> implements LoaderDecorator<K, V> {
+public class LoaderWithDiskFallbackDecorator<K, V> implements LoaderDecorator<K, V> {
 
 	private final Path fallbackDirectory;
 	private final FallbackFileNamingStrategy<? super K> fallbackFileNamingStrategy;
 	private final Marshaller<V> marshaller;
-	private final FallbackWriteFailedHandler<? super K, ? super V> fallbackWriteFailedHandler;
+	private final FallbackKeeperFailedHandler<? super K, ? super V> fallbackWriteFailedHandler;
 
 
-	public DiskStorageFallbackLoaderDecorator(
+	public LoaderWithDiskFallbackDecorator(
 			Path fallbackDirectory, FallbackFileNamingStrategy<? super K> fallbackFileNamingStrategy, Marshaller<V> marshaller) {
 
-		this(fallbackDirectory, fallbackFileNamingStrategy, marshaller, new FallbackWriteFailedHandler.LogAsError());
+		this(fallbackDirectory, fallbackFileNamingStrategy, marshaller, new FallbackKeeperFailedHandler.LogAsError());
 	}
 
-	public DiskStorageFallbackLoaderDecorator(
+	public LoaderWithDiskFallbackDecorator(
 			Path fallbackDirectory, FallbackFileNamingStrategy<? super K> fallbackFileNamingStrategy, Marshaller<V> marshaller,
-			FallbackWriteFailedHandler<? super K, ? super V> fallbackWriteFailedHandler) {
+			FallbackKeeperFailedHandler<? super K, ? super V> fallbackWriteFailedHandler) {
 
 		this.fallbackDirectory = fallbackDirectory;
 		this.fallbackFileNamingStrategy = fallbackFileNamingStrategy;
@@ -49,7 +51,7 @@ public class DiskStorageFallbackLoaderDecorator<K, V> implements LoaderDecorator
 
 	@Override
 	public Loader<K, V> decorate(Loader<? super K, V> loader) {
-		Resolver<K> resolver = new FallbackFile.Resolver<>(fallbackDirectory, fallbackFileNamingStrategy);
+		FallbackFile.Resolver<K> resolver = new FallbackFile.Resolver<>(fallbackDirectory, fallbackFileNamingStrategy);
 		if (Files.isRegularFile(fallbackDirectory)) {
 			throw new IllegalStateException(fallbackDirectory + " should either be non-existing or a directory, but refers to an existing file.");
 		}
@@ -59,7 +61,7 @@ public class DiskStorageFallbackLoaderDecorator<K, V> implements LoaderDecorator
 			throw new RuntimeException("Unable to prepare the directory to store cache values for fallback: "
 					+ e.getClass().getSimpleName() + " '" + e.getMessage() + "'", e);
 		}
-		return new DiskStorageFallbackLoader<K, V>(resolver, loader, marshaller, fallbackWriteFailedHandler);
+		return new LoaderWithFallback<K, V>(loader, new DiskFallbackLoader<>(resolver, marshaller), new DiskFallbackKeeper<>(resolver, marshaller), fallbackWriteFailedHandler);
 	}
 
 }

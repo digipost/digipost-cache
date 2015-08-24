@@ -13,12 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package no.digipost.cache.fallback;
+package no.digipost.cache.fallback.marshall;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
 public interface Marshaller<T> {
-	T read(InputStream input);
-	void write(T toWrite, OutputStream output);
+	T read(InputStream input) throws Exception;
+	void write(T toWrite, OutputStream output) throws IOException;
 }
