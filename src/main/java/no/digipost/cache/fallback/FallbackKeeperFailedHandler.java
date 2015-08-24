@@ -18,6 +18,13 @@ package no.digipost.cache.fallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Handles a failing {@link FallbackKeeper#keep(Object, Object)}.
+ * As writing a fallback value should in general not interfere with
+ * yielding the already successfully loaded value, the most appropriate
+ * action is to {@link LogAsError log errors}, and investigate if this starts
+ * happening regularily.
+ */
 public interface FallbackKeeperFailedHandler<K, V> {
 	void handle(K cacheKey, V value, Exception cause);
 

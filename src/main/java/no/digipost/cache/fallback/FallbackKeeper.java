@@ -35,6 +35,9 @@ public interface FallbackKeeper<K, V> {
 		@Override public void keep(Object key, Object value) { }};
 
 
+	/**
+	 * Keep the value (with it's associated key) successfully retrieved from a {@link Loader}.
+	 */
 	public void keep(K key, V value) throws Exception;
 
 }

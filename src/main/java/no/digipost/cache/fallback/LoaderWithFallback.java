@@ -20,12 +20,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Cache-loader wrapper that persists the last cache-value to disk to be used as fallback-mechanism if
- * the primary cache-loader fails.
- *
- * Should the write-operation start to fail, the cache-value on disk may become out-dated. Currently,
+ * {@link Loader} which wraps an extra loader which will be tried as fallback if the primary loader fails.
+ * The fallback loader are usually paired with a {@link FallbackKeeper} which keeps successfully loaded
+ * values for the fallback loader to retrieve in the event of a failing primary loader.
+ * <p>
+ * Should the write-operation start to fail, the fallback-value may become out-dated. Currently,
  * this content is never considered to be expired, and it will continue to return a "stale" copy of the cache
- * until the write-opertation succeeds (thus overwriting the stale data).
+ * until the {@link FallbackKeeper#keep(Object, Object) keep}-operation succeeds (thus overwriting the stale data).
  *
  */
 public class LoaderWithFallback<K, V> implements Loader<K, V> {
