@@ -65,6 +65,11 @@
             <version>1.3</version>
             <scope>test</scope>
         </dependency>
+		<dependency>
+			<groupId>org.mockito</groupId>
+			<artifactId>mockito-core</artifactId>
+			<version>1.10.19</version>
+		</dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
@@ -106,6 +111,7 @@
 							<exclude>NOTICE</exclude>
 							<exclude>src/main/notice/NOTICE.template</exclude>
 							<exclude>**/*.xml</exclude>
+							<exclude>src/test/resources/**</exclude>
 						</excludes>
 					</configuration>
 				</plugin>
@@ -127,6 +133,8 @@
                                     <include>junit:junit</include>
                                     <include>org.slf4j:slf4j-api</include>
                                     <include>org.slf4j:slf4j-simple</include>
+									<include>org.mockito:mockito-core</include>
+									<include>org.objenesis:objenesis</include>
                                 </includes>
 								<searchTransitive>true</searchTransitive>
 								<message>

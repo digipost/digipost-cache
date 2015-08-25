@@ -15,6 +15,9 @@
  */
 package no.digipost.cache.inmemory;
 
+import no.digipost.cache.loader.Callables;
+import no.digipost.cache.loader.Loader;
+
 import java.util.UUID;
 import java.util.concurrent.Callable;
 
@@ -30,30 +33,47 @@ import static no.motif.Iterate.on;
  */
 public final class SingleCached<V> {
 
-	private static final String CACHE_KEY_FOR_SINGLE_VALUE = "<no-key>";
-
 	private final Cache<String, V> cache;
-	private final Callable<V> resolver;
+	private final Loader<? super String, V> resolver;
+
+	private String key;
 
 	public SingleCached(Callable<V> resolver, CacheConfig ... configs) {
+		this(Callables.toLoader(resolver), configs);
+	}
+
+	public SingleCached(Loader<? super String, V> resolver, CacheConfig ... configs) {
 		this(resolver, asList(configs));
 	}
 
 	public SingleCached(String name, Callable<V> resolver, CacheConfig ... configs) {
+		this(name, Callables.toLoader(resolver), configs);
+	}
+
+	public SingleCached(String name, Loader<? super String, V> resolver, CacheConfig ... configs) {
 		this(name, resolver, asList(configs));
 	}
 
 	public SingleCached(Callable<V> resolver, Iterable<CacheConfig> configs) {
+		this(Callables.toLoader(resolver), configs);
+	}
+
+	public SingleCached(Loader<? super String, V> resolver, Iterable<CacheConfig> configs) {
 		this("single-value-cache-" + UUID.randomUUID(), resolver, configs);
 	}
 
 	public SingleCached(String name, Callable<V> resolver, Iterable<CacheConfig> configs) {
+		this(name, Callables.toLoader(resolver), configs);
+	}
+
+	public SingleCached(String name, Loader<? super String, V> resolver, Iterable<CacheConfig> configs) {
 		this.resolver = resolver;
 		this.cache = new Cache<String, V>(name, on(configs).append(initialCapacity(1)).append(maximumSize(1)));
+		this.key = name + "-cachekey";
 	}
 
 	public V get() {
-        return cache.get(CACHE_KEY_FOR_SINGLE_VALUE, resolver);
+        return cache.get(key, resolver);
 	}
 
 	public void invalidate() {
