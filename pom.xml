@@ -14,7 +14,7 @@
     </parent>
 
 	<artifactId>cache</artifactId>
-	<version>1.1-SNAPSHOT</version>
+	<version>1.1</version>
 	<name>Digipost Caching</name>
 	<description>Caching functionality.</description>
 
@@ -272,7 +272,7 @@
 		<connection>scm:git:git@github.com:digipost/digipost-cache.git</connection>
 		<developerConnection>scm:git:git@github.com:digipost/digipost-cache.git</developerConnection>
 		<url>https://github.com/digipost/digipost-cache/</url>
-		<tag>HEAD</tag>
+		<tag>1.1</tag>
 	</scm>
 
 </project>
