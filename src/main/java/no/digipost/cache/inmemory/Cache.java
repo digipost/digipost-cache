@@ -105,4 +105,8 @@ public final class Cache<K, V> {
 		guavaCache.invalidateAll(keys);
 	}
 
+	public CacheStats getCacheStats() {
+		return CacheStats.fromGuava(guavaCache.stats());
+	}
+
 }
