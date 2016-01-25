@@ -75,6 +75,15 @@ public abstract class CacheConfig implements ConfiguresGuavaCache {
 			}};
 	}
 
+	public static CacheConfig recordStats() {
+		return new CacheConfig() {
+			@Override
+			public CacheBuilder<Object, Object> configure(CacheBuilder<Object, Object> builder) {
+				LOG.info("Recording stats");
+				return builder.recordStats();
+			}};
+	}
+
 
 
 	static final CacheConfig jodaTicker = new CacheConfig() {
