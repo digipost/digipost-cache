@@ -16,6 +16,8 @@
 package no.digipost.cache.inmemory;
 
 import com.google.common.cache.CacheBuilder;
+import com.google.common.util.concurrent.ExecutionError;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import no.digipost.cache.loader.Callables;
 import no.digipost.cache.loader.Loader;
 import org.slf4j.Logger;
@@ -85,9 +87,16 @@ public final class Cache<K, V> {
 					return value;
                 }
 	        });
-        } catch (ExecutionException e) {
-	        throw new RuntimeException(e.getMessage(), e);
-        }
+        } catch (ExecutionException | UncheckedExecutionException e) {
+			final Throwable cause = e.getCause();
+			if (cause instanceof RuntimeException) {
+				throw (RuntimeException) cause;
+			} else {
+				throw new RuntimeException(cause);
+			}
+		} catch (ExecutionError e) {
+			throw new Error(e.getCause());
+		}
 	}
 
 	public void invalidateAll() {
