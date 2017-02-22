@@ -78,16 +78,16 @@ public final class Cache<K, V> {
 	 */
 	public V get(final K key, final Loader<? super K, V> valueResolver) {
 		try {
-	        return guavaCache.get(key, new Callable<V>() {
+			return guavaCache.get(key, new Callable<V>() {
 				@Override
-                public V call() throws Exception {
+				public V call() throws Exception {
 					LOG.debug("{} resolving value for key {}", name, key);
 					V value = valueResolver.load(key);
 					LOG.info("Loaded '{}' into '{}' cache for key '{}'", value, name, key);
 					return value;
-                }
-	        });
-        } catch (ExecutionException | UncheckedExecutionException e) {
+				}
+			});
+		} catch (ExecutionException | UncheckedExecutionException e) {
 			final Throwable cause = e.getCause();
 			if (cause instanceof RuntimeException) {
 				throw (RuntimeException) cause;
@@ -105,7 +105,7 @@ public final class Cache<K, V> {
 	}
 
 	@SafeVarargs
-    public final void invalidate(K ... keys) {
+	public final void invalidate(K ... keys) {
 		invalidate(asList(keys));
 	}
 
