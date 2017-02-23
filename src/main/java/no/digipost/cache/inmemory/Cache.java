@@ -92,11 +92,16 @@ public final class Cache<K, V> {
 			if (cause instanceof RuntimeException) {
 				throw (RuntimeException) cause;
 			} else {
-				throw new RuntimeException(cause);
+				throw new RuntimeException(getCauseDescription(cause), cause);
 			}
 		} catch (ExecutionError e) {
-			throw new Error(e.getCause());
+			final Throwable cause = e.getCause();
+			throw new Error(getCauseDescription(cause), cause);
 		}
+	}
+
+	private String getCauseDescription(final Throwable cause) {
+		return cause.getClass() + ": " + cause.getMessage();
 	}
 
 	public void invalidateAll() {
