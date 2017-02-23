@@ -101,7 +101,7 @@ public final class Cache<K, V> {
 	}
 
 	private String getCauseDescription(final Throwable cause) {
-		return cause.getClass() + ": " + cause.getMessage();
+		return cause.getClass().getSimpleName() + ": " + cause.getMessage();
 	}
 
 	public void invalidateAll() {
