@@ -23,6 +23,8 @@ import no.digipost.cache.loader.Loader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -30,7 +32,6 @@ import java.util.concurrent.ExecutionException;
 import static java.util.Arrays.asList;
 import static no.digipost.cache.inmemory.CacheConfig.jodaTicker;
 import static no.digipost.cache.inmemory.CacheConfig.logRemoval;
-import static no.motif.Iterate.on;
 
 /**
  * Wrapper around {@link com.google.common.cache.Cache} from the Guava
@@ -51,13 +52,20 @@ public final class Cache<K, V> {
 		this(name, asList(configurers));
 	}
 
-	public Cache(Iterable<CacheConfig> configurers) {
+	public Cache(List<CacheConfig> configurers) {
 		this("cache-" + UUID.randomUUID(), configurers);
 	}
 
-	public Cache(String name, Iterable<CacheConfig> configurers) {
+	public Cache(String name, List<CacheConfig> configurers) {
 		LOG.info("Creating new cache: {}", name);
-		this.guavaCache = on(configurers).append(jodaTicker).append(logRemoval).reduce(CacheBuilder.newBuilder(), ConfiguresGuavaCache.applyConfiguration).build();
+		CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder();
+		List<CacheConfig> allConfigurers = new ArrayList<>(configurers);
+		allConfigurers.add(jodaTicker);
+		allConfigurers.add(logRemoval);
+		for (ConfiguresGuavaCache configurer : allConfigurers) {
+			configurer.configure(cacheBuilder);
+		}
+		this.guavaCache = cacheBuilder.build();
 		this.name = name;
 	}
 

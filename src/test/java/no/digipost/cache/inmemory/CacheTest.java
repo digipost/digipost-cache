@@ -15,20 +15,30 @@
  */
 package no.digipost.cache.inmemory;
 
-import no.digipost.util.Fns;
 import no.digipost.util.FreezedTime;
 import org.junit.Rule;
 import org.junit.Test;
 
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static co.unruly.matchers.StreamMatchers.allMatch;
 import static java.util.Arrays.asList;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Stream.generate;
+import static no.digipost.DiggExceptions.mayThrow;
 import static no.digipost.cache.inmemory.CacheConfig.expireAfterAccess;
-import static no.motif.Iterate.on;
-import static org.hamcrest.Matchers.*;
-import static org.joda.time.Duration.*;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.is;
+import static org.joda.time.Duration.millis;
+import static org.joda.time.Duration.standardMinutes;
+import static org.joda.time.Duration.standardSeconds;
 import static org.junit.Assert.assertThat;
 
 public class CacheTest {
@@ -75,10 +85,10 @@ public class CacheTest {
 					return value.get();
                 }
 			};
-			List<Future<Integer>> values = on(valueWhenIncreased).repeat(threadAmount).map(Fns.<Integer>submit(threadpool)).collect();
+			List<Future<Integer>> values = generate(() -> valueWhenIncreased).limit(threadAmount).map(threadpool::submit).collect(toList());
 			Thread.sleep(2000);
 			time.wait(standardSeconds(3));
-			assertThat(on(values).map(Fns.<Integer>getInt()), everyItem(is(1)));
+			assertThat(values.stream().map(mayThrow((Future<Integer> value) -> value.get()).asUnchecked()), allMatch(is(1)));
 		} finally {
 			threadpool.shutdown();
 			threadpool.awaitTermination(5, TimeUnit.SECONDS);

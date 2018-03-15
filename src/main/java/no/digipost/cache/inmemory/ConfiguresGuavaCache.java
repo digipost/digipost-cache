@@ -16,18 +16,10 @@
 package no.digipost.cache.inmemory;
 
 import com.google.common.cache.CacheBuilder;
-import no.motif.f.Fn2;
 
+@FunctionalInterface
 interface ConfiguresGuavaCache {
 
-	CacheBuilder<Object, Object> configure(CacheBuilder<Object, Object> builder);
-
-
-	final Fn2<CacheBuilder<Object, Object>, ConfiguresGuavaCache, CacheBuilder<Object, Object>> applyConfiguration =
-		new Fn2<CacheBuilder<Object,Object>, ConfiguresGuavaCache, CacheBuilder<Object,Object>>() {
-    		@Override
-            public CacheBuilder<Object, Object> $(CacheBuilder<Object, Object> builder, ConfiguresGuavaCache configurer) {
-    			return configurer.configure(builder);
-            }};
+	<K, V> CacheBuilder<K, V> configure(CacheBuilder<K, V> builder);
 
 }

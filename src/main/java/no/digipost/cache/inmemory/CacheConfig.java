@@ -33,7 +33,7 @@ public abstract class CacheConfig implements ConfiguresGuavaCache {
 
 	public static final CacheConfig useSoftValues = new CacheConfig() {
 		@Override
-		public CacheBuilder<Object, Object> configure(CacheBuilder<Object, Object> builder) {
+		public <K, V> CacheBuilder<K, V> configure(CacheBuilder<K, V> builder) {
 			LOG.info("Using soft references for caching. See http://docs.oracle.com/javase/1.5.0/docs/api/java/lang/ref/SoftReference.html");
 			return builder.softValues();
 		}
@@ -42,7 +42,7 @@ public abstract class CacheConfig implements ConfiguresGuavaCache {
 	public static CacheConfig expireAfterAccess(final Duration expiryTime) {
 		return new CacheConfig() {
 			@Override
-            public CacheBuilder<Object, Object> configure(CacheBuilder<Object, Object> builder) {
+            public <K, V> CacheBuilder<K, V> configure(CacheBuilder<K, V> builder) {
 				LOG.info("Expires values {} ms after last access", expiryTime.getMillis());
 				return builder.expireAfterAccess(expiryTime.getMillis(), TimeUnit.MILLISECONDS);
             }};
@@ -51,7 +51,7 @@ public abstract class CacheConfig implements ConfiguresGuavaCache {
 	public static CacheConfig expireAfterWrite(final Duration expiryTime) {
 		return new CacheConfig() {
 			@Override
-            public CacheBuilder<Object, Object> configure(CacheBuilder<Object, Object> builder) {
+            public <K, V> CacheBuilder<K, V> configure(CacheBuilder<K, V> builder) {
 				LOG.info("Expire values {} ms after they are written to the cache", expiryTime.getMillis());
 				return builder.expireAfterWrite(expiryTime.getMillis(), TimeUnit.MILLISECONDS);
             }};
@@ -60,7 +60,7 @@ public abstract class CacheConfig implements ConfiguresGuavaCache {
 	public static CacheConfig initialCapacity(final int initCapacity) {
 		return new CacheConfig() {
 			@Override
-			public CacheBuilder<Object, Object> configure(CacheBuilder<Object, Object> builder) {
+			public <K, V> CacheBuilder<K, V> configure(CacheBuilder<K, V> builder) {
 				LOG.info("Initial capacity = {}" , initCapacity);
 				return builder.initialCapacity(initCapacity);
 			}};
@@ -69,7 +69,7 @@ public abstract class CacheConfig implements ConfiguresGuavaCache {
 	public static CacheConfig maximumSize(final long size) {
 		return new CacheConfig() {
 			@Override
-			public CacheBuilder<Object, Object> configure(CacheBuilder<Object, Object> builder) {
+			public <K, V> CacheBuilder<K, V> configure(CacheBuilder<K, V> builder) {
 				LOG.info("Maximum size = {}", size);
 				return builder.maximumSize(size);
 			}};
@@ -78,7 +78,7 @@ public abstract class CacheConfig implements ConfiguresGuavaCache {
 	public static CacheConfig recordStats() {
 		return new CacheConfig() {
 			@Override
-			public CacheBuilder<Object, Object> configure(CacheBuilder<Object, Object> builder) {
+			public <K, V> CacheBuilder<K, V> configure(CacheBuilder<K, V> builder) {
 				LOG.info("Recording stats");
 				return builder.recordStats();
 			}};
@@ -88,7 +88,7 @@ public abstract class CacheConfig implements ConfiguresGuavaCache {
 
 	static final CacheConfig jodaTicker = new CacheConfig() {
 		@Override
-		public CacheBuilder<Object, Object> configure(CacheBuilder<Object, Object> builder) {
+		public <K, V> CacheBuilder<K, V> configure(CacheBuilder<K, V> builder) {
 			LOG.info("Using JodaTime as the clock source");
 			return builder.ticker(new Ticker() {
 				@Override
@@ -101,7 +101,7 @@ public abstract class CacheConfig implements ConfiguresGuavaCache {
 
 	static final CacheConfig logRemoval = new CacheConfig() {
 		@Override
-		public CacheBuilder<Object, Object> configure(CacheBuilder<Object, Object> builder) {
+		public <K, V> CacheBuilder<K, V> configure(CacheBuilder<K, V> builder) {
 			return builder.removalListener(new RemovalListener<Object, Object>() {
 				@Override
                 public void onRemoval(RemovalNotification<Object, Object> notification) {

@@ -18,13 +18,14 @@ package no.digipost.cache.inmemory;
 import no.digipost.cache.loader.Callables;
 import no.digipost.cache.loader.Loader;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 
 import static java.util.Arrays.asList;
 import static no.digipost.cache.inmemory.CacheConfig.initialCapacity;
 import static no.digipost.cache.inmemory.CacheConfig.maximumSize;
-import static no.motif.Iterate.on;
 
 /**
  * Adapts the {@link Cache} to be more appropriate for single value caches.
@@ -54,21 +55,25 @@ public final class SingleCached<V> {
 		this(name, resolver, asList(configs));
 	}
 
-	public SingleCached(Callable<V> resolver, Iterable<CacheConfig> configs) {
+	public SingleCached(Callable<V> resolver, List<CacheConfig> configs) {
 		this(Callables.toLoader(resolver), configs);
 	}
 
-	public SingleCached(Loader<? super String, V> resolver, Iterable<CacheConfig> configs) {
+	public SingleCached(Loader<? super String, V> resolver, List<CacheConfig> configs) {
 		this("single-value-cache-" + UUID.randomUUID(), resolver, configs);
 	}
 
-	public SingleCached(String name, Callable<V> resolver, Iterable<CacheConfig> configs) {
+	public SingleCached(String name, Callable<V> resolver, List<CacheConfig> configs) {
 		this(name, Callables.toLoader(resolver), configs);
 	}
 
-	public SingleCached(String name, Loader<? super String, V> resolver, Iterable<CacheConfig> configs) {
+	public SingleCached(String name, Loader<? super String, V> resolver, List<CacheConfig> configs) {
+		List<CacheConfig> allConfigs = new ArrayList<>(configs);
+		allConfigs.add(initialCapacity(1));
+		allConfigs.add(maximumSize(1));
+
+		this.cache = new Cache<String, V>(name, allConfigs);
 		this.resolver = resolver;
-		this.cache = new Cache<String, V>(name, on(configs).append(initialCapacity(1)).append(maximumSize(1)));
 		this.key = name + "-cachekey";
 	}
 
