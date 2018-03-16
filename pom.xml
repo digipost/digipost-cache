@@ -10,7 +10,7 @@
     </parent>
 
 	<artifactId>digipost-cache</artifactId>
-	<version>2.0-SNAPSHOT</version>
+	<version>2.0</version>
 	<name>Digipost Caching</name>
 	<description>Caching functionality.</description>
 
@@ -280,7 +280,7 @@
 		<connection>scm:git:git@github.com:digipost/digipost-cache.git</connection>
 		<developerConnection>scm:git:git@github.com:digipost/digipost-cache.git</developerConnection>
 		<url>https://github.com/digipost/digipost-cache/</url>
-		<tag>HEAD</tag>
+		<tag>2.0</tag>
 	</scm>
 
 </project>
