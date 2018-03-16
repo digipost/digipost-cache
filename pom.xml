@@ -9,7 +9,7 @@
         <relativePath />
     </parent>
 
-	<artifactId>cache</artifactId>
+	<artifactId>digipost-cache</artifactId>
 	<version>2.0-SNAPSHOT</version>
 	<name>Digipost Caching</name>
 	<description>Caching functionality.</description>
