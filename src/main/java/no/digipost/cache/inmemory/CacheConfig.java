@@ -17,13 +17,11 @@ package no.digipost.cache.inmemory;
 
 import com.google.common.base.Ticker;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.RemovalListener;
-import com.google.common.cache.RemovalNotification;
-import org.joda.time.DateTime;
-import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Clock;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
 public abstract class CacheConfig implements ConfiguresGuavaCache {
@@ -31,87 +29,73 @@ public abstract class CacheConfig implements ConfiguresGuavaCache {
 	private static final Logger LOG = LoggerFactory.getLogger(CacheConfig.class);
 
 
-	public static final CacheConfig useSoftValues = new CacheConfig() {
-		@Override
-		public <K, V> CacheBuilder<K, V> configure(CacheBuilder<K, V> builder) {
-			LOG.info("Using soft references for caching. See http://docs.oracle.com/javase/1.5.0/docs/api/java/lang/ref/SoftReference.html");
-			return builder.softValues();
-		}
-	};
+    public static final CacheConfig useSoftValues = onCacheBuilder(builder -> {
+		LOG.info("Using soft references for caching. See http://docs.oracle.com/javase/1.5.0/docs/api/java/lang/ref/SoftReference.html");
+		return builder.softValues();
+	});
 
 	public static CacheConfig expireAfterAccess(final Duration expiryTime) {
-		return new CacheConfig() {
-			@Override
-            public <K, V> CacheBuilder<K, V> configure(CacheBuilder<K, V> builder) {
-				LOG.info("Expires values {} ms after last access", expiryTime.getMillis());
-				return builder.expireAfterAccess(expiryTime.getMillis(), TimeUnit.MILLISECONDS);
-            }};
+		return onCacheBuilder(builder -> {
+			LOG.info("Expires values {} ms after last access", expiryTime.toMillis());
+			return builder.expireAfterAccess(expiryTime.toMillis(), TimeUnit.MILLISECONDS);
+        });
 	}
 
 	public static CacheConfig expireAfterWrite(final Duration expiryTime) {
-		return new CacheConfig() {
-			@Override
-            public <K, V> CacheBuilder<K, V> configure(CacheBuilder<K, V> builder) {
-				LOG.info("Expire values {} ms after they are written to the cache", expiryTime.getMillis());
-				return builder.expireAfterWrite(expiryTime.getMillis(), TimeUnit.MILLISECONDS);
-            }};
+		return onCacheBuilder(builder -> {
+			LOG.info("Expire values {} ms after they are written to the cache", expiryTime.toMillis());
+			return builder.expireAfterWrite(expiryTime.toMillis(), TimeUnit.MILLISECONDS);
+        });
 	}
 
 	public static CacheConfig initialCapacity(final int initCapacity) {
-		return new CacheConfig() {
-			@Override
-			public <K, V> CacheBuilder<K, V> configure(CacheBuilder<K, V> builder) {
-				LOG.info("Initial capacity = {}" , initCapacity);
-				return builder.initialCapacity(initCapacity);
-			}};
+		return onCacheBuilder(builder -> {
+			LOG.info("Initial capacity = {}" , initCapacity);
+			return builder.initialCapacity(initCapacity);
+	    });
 	}
 
 	public static CacheConfig maximumSize(final long size) {
-		return new CacheConfig() {
-			@Override
-			public <K, V> CacheBuilder<K, V> configure(CacheBuilder<K, V> builder) {
-				LOG.info("Maximum size = {}", size);
-				return builder.maximumSize(size);
-			}};
+		return onCacheBuilder(builder -> {
+			LOG.info("Maximum size = {}", size);
+			return builder.maximumSize(size);
+		});
 	}
 
 	public static CacheConfig recordStats() {
-		return new CacheConfig() {
-			@Override
-			public <K, V> CacheBuilder<K, V> configure(CacheBuilder<K, V> builder) {
-				LOG.info("Recording stats");
-				return builder.recordStats();
-			}};
+		return onCacheBuilder(builder -> {
+			LOG.info("Recording stats");
+			return builder.recordStats();
+		});
 	}
 
+	static CacheConfig clockTicker(Clock clock) {
+	    return onCacheBuilder(builder -> {
+	        LOG.info("Using a {} as the clock source", clock.getClass().getName());
+	        return builder.ticker(new Ticker() {
+	            @Override
+	            public long read() {
+	                return clock.millis() * 1000000;
+	            }
+	        });
+	    });
+	}
+
+	static final CacheConfig systemClockTicker = clockTicker(Clock.systemDefaultZone());
+
+	static final CacheConfig logRemoval = onCacheBuilder(builder -> builder.removalListener(
+	        notification -> Cache.LOG.info("Removing '{}' from cache (key={}). Cause: {}.", notification.getValue(), notification.getKey(), notification.getCause())));
 
 
-	static final CacheConfig jodaTicker = new CacheConfig() {
-		@Override
-		public <K, V> CacheBuilder<K, V> configure(CacheBuilder<K, V> builder) {
-			LOG.info("Using JodaTime as the clock source");
-			return builder.ticker(new Ticker() {
-				@Override
-				public long read() {
-					return DateTime.now().getMillis() * 1000000;
-				}
-			});
-		}
-	};
+	private static CacheConfig onCacheBuilder(ConfiguresGuavaCache configurer) {
+	    return new CacheConfig() {
+            @Override
+            public CacheBuilder<Object, Object> configure(CacheBuilder<Object, Object> builder) {
+                return configurer.configure(builder);
+            }
+	    };
+	}
 
-	static final CacheConfig logRemoval = new CacheConfig() {
-		@Override
-		public <K, V> CacheBuilder<K, V> configure(CacheBuilder<K, V> builder) {
-			return builder.removalListener(new RemovalListener<Object, Object>() {
-				@Override
-                public void onRemoval(RemovalNotification<Object, Object> notification) {
-					Cache.LOG.info("Removing '{}' from cache (key={}). Cause: {}.", notification.getValue(), notification.getKey(), notification.getCause());
-                }
-			});
-		}
-	};
-
-
-	protected CacheConfig() {
+    protected CacheConfig() {
 	}
 }

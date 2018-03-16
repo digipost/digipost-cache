@@ -15,6 +15,7 @@
  */
 package no.digipost.cache.fallback.disk;
 
+import no.digipost.cache.fallback.FallbackKeeperFailedHandler;
 import no.digipost.cache.fallback.marshall.Marshaller;
 import no.digipost.cache.fallback.marshall.SerializingMarshaller;
 import no.digipost.cache.fallback.testharness.FailingCacheLoader;
@@ -22,9 +23,7 @@ import no.digipost.cache.fallback.testharness.OkCacheLoader;
 import no.digipost.cache.fallback.testharness.SimulatedLoaderFailure;
 import no.digipost.cache.loader.Loader;
 import no.digipost.cache.loader.LoaderDecorator;
-import no.digipost.util.FreezedTime;
-import org.joda.time.DateTime;
-import org.joda.time.Duration;
+import no.digipost.time.ControllableClock;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -36,7 +35,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Path;
-import java.util.concurrent.*;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static no.digipost.cache.fallback.disk.FallbackFileNamingStrategy.USE_KEY_TOSTRING_AS_FILENAME;
 import static no.digipost.cache.loader.Callables.toLoader;
@@ -51,9 +57,9 @@ public class DiskStorageFallbackTest {
 	@Rule
 	public ExpectedException expectedException = ExpectedException.none();
 	@Rule
-	public final FreezedTime time = new FreezedTime(DateTime.now());
-	@Rule
 	public final Timeout timeout = new Timeout(10, TimeUnit.SECONDS);
+
+	private final ControllableClock clock = ControllableClock.freezedAt(Instant.now());
 
 	public static final String FIRST_CONTENT = "first_content";
 	public static final String SECOND_CONTENT = "second_content";
@@ -112,16 +118,15 @@ public class DiskStorageFallbackTest {
 	@Test
 	public void should_allow_update_of_disk_fallback_if_lock_expired() throws Exception {
 
-		LoaderDecorator<String, String> diskFallbackDecorator = new LoaderWithDiskFallbackDecorator<>(cache, USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>());
+		LoaderDecorator<String, String> diskFallbackDecorator = new LoaderWithDiskFallbackDecorator<>(cache, USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>(), new FallbackKeeperFailedHandler.Rethrow(), clock);
 		Loader<String, String> diskFallback = diskFallbackDecorator.decorate(toLoader(new OkCacheLoader(FIRST_CONTENT)));
 		diskFallback.load(key); //initialize disk fallback
-
 		// simulate lock
-		assertTrue(new FallbackFile.Resolver<>(cache, USE_KEY_TOSTRING_AS_FILENAME).resolveFor(key).lock.tryLock());
+		assertTrue(new FallbackFile.Resolver<>(cache, USE_KEY_TOSTRING_AS_FILENAME, clock).resolveFor(key).lockedFile.tryLock());
 
 		assertThat(newDiskFallback(new OkCacheLoader(SECOND_CONTENT)).call(), is(SECOND_CONTENT)); // not allowed update
 		assertThat(newDiskFallback(new FailingCacheLoader()).call(), is(FIRST_CONTENT));  // because second call was not allowed to update
-		time.wait(LockFile.DEFAULT_EXPIRY_TIME.plus(Duration.standardSeconds(1)));
+		clock.timePasses(LockedFile.DEFAULT_EXPIRY_TIME.plus(Duration.ofSeconds(1)));
 
 		assertThat(newDiskFallback(new OkCacheLoader(THIRD_CONTENT)).call(), is(THIRD_CONTENT)); // allowed update, lock expired
 		assertThat(newDiskFallback(new FailingCacheLoader()).call(), is(THIRD_CONTENT));
@@ -133,7 +138,7 @@ public class DiskStorageFallbackTest {
 	}
 
 	private Callable<String> newDiskFallback(Callable<String> loader, Marshaller<String> marshaller) {
-		LoaderDecorator<String, String> fallbackLoaderFactory =	new LoaderWithDiskFallbackDecorator<String, String>(cache, USE_KEY_TOSTRING_AS_FILENAME, marshaller);
+		LoaderDecorator<String, String> fallbackLoaderFactory =	new LoaderWithDiskFallbackDecorator<String, String>(cache, USE_KEY_TOSTRING_AS_FILENAME, marshaller, new FallbackKeeperFailedHandler.Rethrow(), clock);
 		return new Loader.AsCallable<>(fallbackLoaderFactory.decorate(toLoader(loader)), key);
 	}
 

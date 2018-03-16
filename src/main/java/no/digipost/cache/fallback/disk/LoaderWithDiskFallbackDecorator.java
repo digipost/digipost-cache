@@ -24,6 +24,7 @@ import no.digipost.cache.loader.LoaderDecorator;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 
 public class LoaderWithDiskFallbackDecorator<K, V> implements LoaderDecorator<K, V> {
 
@@ -31,6 +32,7 @@ public class LoaderWithDiskFallbackDecorator<K, V> implements LoaderDecorator<K,
 	private final FallbackFileNamingStrategy<? super K> fallbackFileNamingStrategy;
 	private final Marshaller<V> marshaller;
 	private final FallbackKeeperFailedHandler<? super K, ? super V> fallbackWriteFailedHandler;
+    private final Clock clock;
 
 
 	public LoaderWithDiskFallbackDecorator(
@@ -40,18 +42,26 @@ public class LoaderWithDiskFallbackDecorator<K, V> implements LoaderDecorator<K,
 	}
 
 	public LoaderWithDiskFallbackDecorator(
+	        Path fallbackDirectory, FallbackFileNamingStrategy<? super K> fallbackFileNamingStrategy, Marshaller<V> marshaller,
+	        FallbackKeeperFailedHandler<? super K, ? super V> fallbackWriteFailedHandler) {
+
+	    this(fallbackDirectory, fallbackFileNamingStrategy, marshaller, fallbackWriteFailedHandler, Clock.systemDefaultZone());
+	}
+
+	public LoaderWithDiskFallbackDecorator(
 			Path fallbackDirectory, FallbackFileNamingStrategy<? super K> fallbackFileNamingStrategy, Marshaller<V> marshaller,
-			FallbackKeeperFailedHandler<? super K, ? super V> fallbackWriteFailedHandler) {
+			FallbackKeeperFailedHandler<? super K, ? super V> fallbackWriteFailedHandler, Clock clock) {
 
 		this.fallbackDirectory = fallbackDirectory;
 		this.fallbackFileNamingStrategy = fallbackFileNamingStrategy;
 		this.marshaller = marshaller;
 		this.fallbackWriteFailedHandler = fallbackWriteFailedHandler;
+        this.clock = clock;
 	}
 
 	@Override
 	public Loader<K, V> decorate(Loader<? super K, V> loader) {
-		FallbackFile.Resolver<K> resolver = new FallbackFile.Resolver<>(fallbackDirectory, fallbackFileNamingStrategy);
+		FallbackFile.Resolver<K> resolver = new FallbackFile.Resolver<>(fallbackDirectory, fallbackFileNamingStrategy, clock);
 		if (Files.isRegularFile(fallbackDirectory)) {
 			throw new IllegalStateException(fallbackDirectory + " should either be non-existing or a directory, but refers to an existing file.");
 		}

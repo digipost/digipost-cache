@@ -20,6 +20,6 @@ import com.google.common.cache.CacheBuilder;
 @FunctionalInterface
 interface ConfiguresGuavaCache {
 
-	<K, V> CacheBuilder<K, V> configure(CacheBuilder<K, V> builder);
+	CacheBuilder<Object, Object> configure(CacheBuilder<Object, Object> builder);
 
 }

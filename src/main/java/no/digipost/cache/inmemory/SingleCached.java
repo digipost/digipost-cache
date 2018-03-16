@@ -18,12 +18,14 @@ package no.digipost.cache.inmemory;
 import no.digipost.cache.loader.Callables;
 import no.digipost.cache.loader.Loader;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.stream.Stream;
 
 import static java.util.Arrays.asList;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Stream.concat;
 import static no.digipost.cache.inmemory.CacheConfig.initialCapacity;
 import static no.digipost.cache.inmemory.CacheConfig.maximumSize;
 
@@ -68,13 +70,13 @@ public final class SingleCached<V> {
 	}
 
 	public SingleCached(String name, Loader<? super String, V> resolver, List<CacheConfig> configs) {
-		List<CacheConfig> allConfigs = new ArrayList<>(configs);
-		allConfigs.add(initialCapacity(1));
-		allConfigs.add(maximumSize(1));
+		this(name + "-cachekey", resolver, Cache.create(name, concat(Stream.of(initialCapacity(1), maximumSize(1)), configs.stream()).collect(toList())));
+	}
 
-		this.cache = new Cache<String, V>(name, allConfigs);
-		this.resolver = resolver;
-		this.key = name + "-cachekey";
+	SingleCached(String cacheKey, Loader<? super String, V> resolver, Cache<String, V> underlyingCache) {
+	    this.cache = underlyingCache;
+	    this.resolver = resolver;
+	    this.key = cacheKey;
 	}
 
 	public V get() {

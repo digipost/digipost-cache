@@ -15,7 +15,6 @@
  */
 package no.digipost.cache.fallback.disk;
 
-import no.digipost.cache.fallback.disk.LoaderWithDiskFallbackDecorator;
 import no.digipost.cache.fallback.marshall.SerializingMarshaller;
 import no.digipost.cache.fallback.testharness.FailingCacheLoader;
 import no.digipost.cache.fallback.testharness.OkCacheLoader;
@@ -63,7 +62,7 @@ public class CacheWithDiskFallbackTest {
 	@Test
 	public void test_cache_with_multiple_keys() throws IOException {
 		final Path cacheDir = fallbackFolder.newFolder().toPath();
-		final Cache<String, String> cache = new Cache<>();
+		final Cache<String, String> cache = Cache.create();
 		final LoaderDecorator<String, String> diskFallbackFactory = new LoaderWithDiskFallbackDecorator<>(cacheDir, USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>());
 
 		// initialize cache

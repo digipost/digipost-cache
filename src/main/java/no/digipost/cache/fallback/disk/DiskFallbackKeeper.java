@@ -18,9 +18,7 @@ package no.digipost.cache.fallback.disk;
 import no.digipost.cache.fallback.FallbackKeeper;
 import no.digipost.cache.fallback.disk.FallbackFile.Resolver;
 import no.digipost.cache.fallback.marshall.Marshaller;
-import no.digipost.cache.function.ThrowingRunnable;
 
-import java.io.IOException;
 import java.io.OutputStream;
 
 class DiskFallbackKeeper<K, V> implements FallbackKeeper<K, V> {
@@ -35,14 +33,11 @@ class DiskFallbackKeeper<K, V> implements FallbackKeeper<K, V> {
 
 	@Override
 	public void keep(K key, final V value) throws Exception {
-		final FallbackFile fallbackFile = fileResolver.resolveFor(key);
-		fileResolver.resolveFor(key).lock.runIfLock(new ThrowingRunnable<IOException>() {
-			@Override
-			public void run() throws IOException {
-				try (OutputStream out = fallbackFile.write()) {
-					marshaller.write(value, out);
-				}
-			}
+		FallbackFile fallbackFile = fileResolver.resolveFor(key);
+		fileResolver.resolveFor(key).lockedFile.runIfLock(() -> {
+		    try (OutputStream out = fallbackFile.write()) {
+		        marshaller.write(value, out);
+		    }
 		});
 	}
 }

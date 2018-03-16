@@ -15,8 +15,8 @@
  */
 package no.digipost.cache.inmemory;
 
-import no.digipost.util.FreezedTime;
-import org.junit.Rule;
+import no.digipost.cache.loader.Loader;
+import no.digipost.time.ControllableClock;
 import org.junit.Test;
 
 import java.util.List;
@@ -28,32 +28,30 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static co.unruly.matchers.StreamMatchers.allMatch;
+import static java.time.Duration.ofMillis;
+import static java.time.Duration.ofMinutes;
+import static java.time.Duration.ofSeconds;
+import static java.time.Instant.ofEpochMilli;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Stream.generate;
 import static no.digipost.DiggExceptions.mayThrow;
+import static no.digipost.cache.inmemory.CacheConfig.clockTicker;
 import static no.digipost.cache.inmemory.CacheConfig.expireAfterAccess;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.is;
-import static org.joda.time.Duration.millis;
-import static org.joda.time.Duration.standardMinutes;
-import static org.joda.time.Duration.standardSeconds;
 import static org.junit.Assert.assertThat;
 
 public class CacheTest {
 
-	@Rule
-	public final FreezedTime time = new FreezedTime(1000);
+	private final AtomicInteger num = new AtomicInteger(-1);
+	private final Loader<String, Integer> incrementingValue = key -> num.incrementAndGet();
 
-	private final Callable<Integer> incrementingValue = new Callable<Integer>() {
-		final AtomicInteger num = new AtomicInteger(0);
-		@Override public Integer call() {
-			return num.getAndIncrement();
-        }};
+    private final ControllableClock clock = ControllableClock.freezedAt(ofEpochMilli(1000));
 
-
-    private final SingleCached<Integer> value = new SingleCached<>("CacheTest", incrementingValue, expireAfterAccess(standardSeconds(1)));
+    private final SingleCached<Integer> value =
+            new SingleCached<Integer>("CacheTest", incrementingValue, new Cache<String, Integer>("single-int", asList(expireAfterAccess(ofSeconds(1)), clockTicker(clock))));
 
 	@Test
 	public void resolvesValueOnFirstAccess() {
@@ -63,11 +61,11 @@ public class CacheTest {
 	@Test
 	public void reusesCachedValueWhileAccessingWithinExpiryTime() throws Exception {
 		assertThat(asList(value.get(), value.get(), value.get()), everyItem(is(0)));
-		time.wait(millis(900));
+		clock.timePasses(ofMillis(900));
 		assertThat(value.get(), is(0));
-		time.wait(millis(20));
+		clock.timePasses(ofMillis(20));
 		assertThat(value.get(), is(0));
-		time.wait(standardSeconds(14));
+		clock.timePasses(ofSeconds(14));
 		assertThat(asList(value.get(), value.get(), value.get()), contains(1, 1, 1));
 	}
 
@@ -76,18 +74,15 @@ public class CacheTest {
 		final int threadAmount = 300;
 		ExecutorService threadpool = Executors.newFixedThreadPool(threadAmount);
 		try {
-			Callable<Integer> valueWhenIncreased = new Callable<Integer>() {
-				@Override
-                public Integer call() throws Exception {
-					while (value.get() == 0) {
-						Thread.sleep(5);
-					}
-					return value.get();
-                }
+			Callable<Integer> valueWhenIncreased = () -> {
+			    while (value.get() == 0) {
+			        Thread.sleep(5);
+			    }
+			    return value.get();
 			};
 			List<Future<Integer>> values = generate(() -> valueWhenIncreased).limit(threadAmount).map(threadpool::submit).collect(toList());
 			Thread.sleep(2000);
-			time.wait(standardSeconds(3));
+			clock.timePasses(ofSeconds(3));
 			assertThat(values.stream().map(mayThrow((Future<Integer> value) -> value.get()).asUnchecked()), allMatch(is(1)));
 		} finally {
 			threadpool.shutdown();
@@ -99,7 +94,7 @@ public class CacheTest {
 	public void invalidatingCache() {
 		assertThat(value.get(), is(0));
 		assertThat(value.get(), is(0));
-		time.wait(standardMinutes(1));
+		clock.timePasses(ofMinutes(1));
 		assertThat(value.get(), is(1));
 		assertThat(value.get(), is(1));
 		value.invalidate();

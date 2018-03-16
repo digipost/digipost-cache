@@ -26,6 +26,7 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
+import java.time.Clock;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -38,16 +39,14 @@ public class FallbackFile {
 
 	private static final Logger LOG = LoggerFactory.getLogger(FallbackFile.class);
 
-	public final Path file;
-	public final LockFile lock;
+	public final LockedFile lockedFile;
 
 	private final Random random = new SecureRandom();
 	private final AtomicBoolean written;
 
-	FallbackFile(Path file) {
-		this.file = file;
-		this.lock = new LockFile(file);
-		this.written = new AtomicBoolean(Files.exists(file));
+	FallbackFile(LockedFile file) {
+		this.lockedFile = file;
+		this.written = new AtomicBoolean(Files.exists(file.getPath()));
 	}
 
 
@@ -57,7 +56,8 @@ public class FallbackFile {
 	 * @return an {@link InputStream} for reading the contents of the fallback file.
 	 */
 	public InputStream read() throws IOException {
-		boolean fallbackFileExists = Files.exists(file);
+	    Path file = lockedFile.getPath();
+        boolean fallbackFileExists = Files.exists(file);
 		written.compareAndSet(false, fallbackFileExists);
 		if (!written.get()) {
 			throw new FallbackFileNotYetCreated(file);
@@ -97,6 +97,7 @@ public class FallbackFile {
 				}
 				try {
 					stream.close();
+					Path file = lockedFile.getPath();
 					if (LOG.isDebugEnabled()) {
 						LOG.debug("Done writing cachevalue to disk. Comitting by renaming {} to {} (directory: {})",
 								  tempfile.getFileName(), file.getFileName(), file.getParent());
@@ -113,11 +114,12 @@ public class FallbackFile {
 
 	@Override
 	public String toString() {
-		return "Fallback-file " + file;
+		return "Fallback-file " + lockedFile.getPath();
 	}
 
 	private Path getTempfile() {
-		return file.resolveSibling(file.getFileName() + "." + System.currentTimeMillis() + "." + randomString(10));
+	    Path file = lockedFile.getPath();
+	    return file.resolveSibling(file.getFileName() + "." + System.currentTimeMillis() + "." + randomString(10));
 	}
 
 	private String randomString(int length) {
@@ -133,14 +135,16 @@ public class FallbackFile {
 
 		private final Path directory;
 		private final FallbackFileNamingStrategy<? super K> fileNamingStrategy;
+        private final Clock clock;
 
-		public Resolver(Path directory, FallbackFileNamingStrategy<? super K> fileNamingStrategy) {
+		public Resolver(Path directory, FallbackFileNamingStrategy<? super K> fileNamingStrategy, Clock clock) {
 			this.directory = directory;
 			this.fileNamingStrategy = fileNamingStrategy;
+			this.clock = clock;
 		}
 
 		public FallbackFile resolveFor(K cacheKey) {
-			return new FallbackFile(directory.resolve(fileNamingStrategy.toFilename(cacheKey)));
+			return new FallbackFile(new LockedFile(directory.resolve(fileNamingStrategy.toFilename(cacheKey)), clock));
 		}
 	}
 

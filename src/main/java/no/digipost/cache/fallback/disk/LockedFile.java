@@ -16,8 +16,6 @@
 package no.digipost.cache.fallback.disk;
 
 import no.digipost.cache.function.ThrowingRunnable;
-import org.joda.time.Duration;
-import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,30 +24,42 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 
-import static org.joda.time.Duration.standardMinutes;
-
-public class LockFile {
+public class LockedFile {
 
 	/**
 	 * The default maximum time a lock is allowed to be held before
 	 * releasing it with {@link #releaseLock(Path)} is 10 minutes.
 	 */
-	static final Duration DEFAULT_EXPIRY_TIME = standardMinutes(10);
+	static final Duration DEFAULT_EXPIRY_TIME = Duration.ofMinutes(10);
 
-	static final Logger LOG = LoggerFactory.getLogger(LockFile.class);
-	private static final String LOCK_FILE_POSTFIX = "." + LockFile.class.getCanonicalName() + ".lock";
+	static final Logger LOG = LoggerFactory.getLogger(LockedFile.class);
+	private static final String LOCK_FILE_POSTFIX = "." + LockedFile.class.getCanonicalName() + ".lock";
 	private final Path file;
+	private final Path lockfile;
 	private final Duration maximumLockingDuration;
+	private final Clock clock;
 
 
-	LockFile(Path forFile) {
-		this(forFile, DEFAULT_EXPIRY_TIME);
+	LockedFile(Path forFile, Clock clock) {
+		this(forFile, DEFAULT_EXPIRY_TIME, clock);
 	}
 
-	LockFile(Path forFile, Duration maximumLockingDuration) {
-		this.file = forFile.resolveSibling(forFile.getFileName() + LOCK_FILE_POSTFIX);
+	LockedFile(Path forFile, Duration maximumLockingDuration, Clock clock) {
+	    this.file = forFile;
+		this.lockfile = forFile.resolveSibling(forFile.getFileName() + LOCK_FILE_POSTFIX);
 		this.maximumLockingDuration = maximumLockingDuration;
+		this.clock = clock;
+	}
+
+	/**
+	 * @return the path to the file which may be locked.
+	 */
+	public Path getPath() {
+	    return file;
 	}
 
 	/**
@@ -96,7 +106,7 @@ public class LockFile {
 	public boolean tryLock() {
 		// Check if lock is available. Removed expired locks.
 		if (isLocked()) {
-			if (isExpired()) {
+			if (isExpiredAt(clock.instant())) {
 				LOG.warn("Lock-file is considered to be expired since it is older than {}. Deleting it. " +
                          "There may be some problematic code which are unable to correctly release an aquired lock.",
                          maximumLockingDuration);
@@ -110,11 +120,12 @@ public class LockFile {
 		// Attempt to acquire lock
 		try {
 			LOG.trace("Creating lockfile");
-			Files.createFile(file); // fails if lock-file exists
+			Files.createFile(lockfile); // fails if lock-file exists
 			LOG.trace("Acquired lock.");
 			return true;
 		} catch (FileAlreadyExistsException fileAlreadyExists) {
-			LOG.debug("Failed to create lock-file. Means that another process created it. Will not run delegate.");
+			LOG.debug("Failed to create lock-file because {}: '{}'. Means that another process created it. Will not run delegate.",
+			        fileAlreadyExists.getClass().getSimpleName(), fileAlreadyExists.getMessage());
 			return false;
 		} catch (IOException e) {
 			throw new UnableToAcquireLock(e, maximumLockingDuration);
@@ -122,15 +133,15 @@ public class LockFile {
 	}
 
 	public boolean isLocked() {
-		return Files.exists(file);
+		return Files.exists(lockfile);
 	}
 
-	private boolean isExpired() {
+	private boolean isExpiredAt(Instant instant) {
 		try {
-			Instant lastModifiedTime = new Instant(Files.getLastModifiedTime(file).toMillis());
-			return lastModifiedTime.isBefore(Instant.now().minus(maximumLockingDuration));
+			Instant lastModifiedTime = Files.getLastModifiedTime(lockfile).toInstant();
+			return lastModifiedTime.isBefore(instant.minus(maximumLockingDuration));
 		} catch (IOException e) {
-			LOG.warn("Failed to read last-modified time of lock-file. Treats is as not expired.");
+			LOG.warn("Failed to read last-modified time of lock-file because {}: '{}'. Treats is as not expired.", e.getClass().getSimpleName(), e.getMessage());
 			return false;
 		}
 	}
@@ -138,7 +149,7 @@ public class LockFile {
 	private boolean releaseExpired() {
 		try {
 			LOG.trace("Deleting expired lockfile");
-			if (!Files.deleteIfExists(file)) {
+			if (!Files.deleteIfExists(lockfile)) {
 				LOG.info("Another process may have deleted the expired lock-file. This is expected behavior, " +
 						 "and continuing normally.");
 			}
@@ -152,7 +163,7 @@ public class LockFile {
 	public void release() {
 		try {
 			LOG.trace("Deleting lockfile");
-			Files.delete(file);
+			Files.delete(lockfile);
 		} catch (NoSuchFileException e) {
 			throw new TryingToDeleteNonExistingLockFile(e);
 		} catch (IOException e) {

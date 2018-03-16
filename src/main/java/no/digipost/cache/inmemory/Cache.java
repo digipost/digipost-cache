@@ -30,8 +30,8 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
 import static java.util.Arrays.asList;
-import static no.digipost.cache.inmemory.CacheConfig.jodaTicker;
 import static no.digipost.cache.inmemory.CacheConfig.logRemoval;
+import static no.digipost.cache.inmemory.CacheConfig.systemClockTicker;
 
 /**
  * Wrapper around {@link com.google.common.cache.Cache} from the Guava
@@ -39,32 +39,36 @@ import static no.digipost.cache.inmemory.CacheConfig.logRemoval;
  */
 public final class Cache<K, V> {
 
+    public static <K, V> Cache<K, V> create(CacheConfig ... configurers) {
+        return create(asList(configurers));
+    }
+
+    public static <K, V> Cache<K, V> create(String name, CacheConfig ... configurers) {
+        return create(name, asList(configurers));
+    }
+
+    public static <K, V> Cache<K, V> create(List<CacheConfig> configurers) {
+        return create("cache-" + UUID.randomUUID(), configurers);
+    }
+
+    public static <K, V> Cache<K, V> create(String name, List<CacheConfig> configurers) {
+        List<CacheConfig> allConfigurers = new ArrayList<>();
+        allConfigurers.add(systemClockTicker);
+        allConfigurers.add(logRemoval);
+        allConfigurers.addAll(configurers);
+        return new Cache<>(name, allConfigurers);
+    }
+
 	static final Logger LOG = LoggerFactory.getLogger(Cache.class);
 
 	private com.google.common.cache.Cache<K, V> guavaCache;
 	private String name;
 
-	public Cache(CacheConfig ... configurers) {
-		this(asList(configurers));
-	}
-
-	public Cache(String name, CacheConfig ... configurers) {
-		this(name, asList(configurers));
-	}
-
-	public Cache(List<CacheConfig> configurers) {
-		this("cache-" + UUID.randomUUID(), configurers);
-	}
-
-	public Cache(String name, List<CacheConfig> configurers) {
+	Cache(String name, List<CacheConfig> configurers) {
 		LOG.info("Creating new cache: {}", name);
 		CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder();
-		List<CacheConfig> allConfigurers = new ArrayList<>(configurers);
-		allConfigurers.add(jodaTicker);
-		allConfigurers.add(logRemoval);
-		for (ConfiguresGuavaCache configurer : allConfigurers) {
-			configurer.configure(cacheBuilder);
-		}
+		configurers.forEach(configurer -> configurer.configure(cacheBuilder));
+
 		this.guavaCache = cacheBuilder.build();
 		this.name = name;
 	}

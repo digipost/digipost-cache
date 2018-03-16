@@ -34,11 +34,6 @@
             <version>24.1-jre</version>
         </dependency>
         <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
-            <version>2.7</version>
-        </dependency>
-        <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>1.7.25</version>
@@ -139,7 +134,6 @@
                                     <include>com.google.j2objc:j2objc-annotations</include>
                                     <include>org.codehaus.mojo:animal-sniffer-annotations</include>
                                     <include>com.google.errorprone:error_prone_annotations</include>
-                                    <include>joda-time:joda-time</include>
                                     <include>org.slf4j:slf4j-api</include>
                                 </includes>
 								<searchTransitive>true</searchTransitive>
