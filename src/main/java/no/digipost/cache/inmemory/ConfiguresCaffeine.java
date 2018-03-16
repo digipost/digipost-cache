@@ -15,11 +15,11 @@
  */
 package no.digipost.cache.inmemory;
 
-import com.google.common.cache.CacheBuilder;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 @FunctionalInterface
-interface ConfiguresGuavaCache {
+interface ConfiguresCaffeine {
 
-	CacheBuilder<Object, Object> configure(CacheBuilder<Object, Object> builder);
+	Caffeine<Object, Object> configure(Caffeine<Object, Object> builder);
 
 }

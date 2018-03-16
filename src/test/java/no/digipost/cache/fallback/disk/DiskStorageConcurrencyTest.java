@@ -15,12 +15,7 @@
  */
 package no.digipost.cache.fallback.disk;
 
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import no.digipost.cache.fallback.FallbackKeeperFailedHandler;
-import no.digipost.cache.fallback.FallbackKeeperFailedHandler.Rethrow;
-import no.digipost.cache.fallback.disk.LoaderWithDiskFallbackDecorator;
 import no.digipost.cache.fallback.marshall.SerializingMarshaller;
 import no.digipost.cache.fallback.testharness.RandomAnswerCacheLoader;
 import no.digipost.cache.loader.Loader;
@@ -37,9 +32,12 @@ import org.mockito.junit.MockitoRule;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static java.util.stream.Collectors.toList;
+import static no.digipost.DiggExceptions.mayThrow;
 import static no.digipost.cache.fallback.disk.FallbackFileNamingStrategy.USE_KEY_TOSTRING_AS_FILENAME;
 import static no.digipost.cache.loader.Callables.toLoader;
 import static org.hamcrest.Matchers.hasSize;
@@ -56,11 +54,11 @@ public class DiskStorageConcurrencyTest {
 	@Rule
 	public final MockitoRule mockito = MockitoJUnit.rule();
 
-	private ListeningExecutorService executorService;
+	private ExecutorService executorService;
 
 	@Before
 	public void setUpExecutor() {
-		executorService = listeningDecorator(Executors.newFixedThreadPool(30));
+		executorService = Executors.newFixedThreadPool(30);
 	}
 
 	@Test
@@ -71,12 +69,12 @@ public class DiskStorageConcurrencyTest {
 		Callable<String> fallbackLoader = new Loader.AsCallable<>(cacheLoaderFactory.decorate(toLoader(new RandomAnswerCacheLoader())), key);
 		fallbackLoader.call(); // initialize disk-fallback
 
-		List<ListenableFuture<String>> futures = new ArrayList<>();
+		List<CompletableFuture<String>> futures = new ArrayList<>();
 		for (int i = 0; i < 10_000; i++) {
-			futures.add(executorService.submit(fallbackLoader));
+			futures.add(CompletableFuture.supplyAsync(mayThrow(fallbackLoader::call).asUnchecked(), executorService));
 		}
 		// should not throw an exception because either result is returned som underlying cache-loader or the disk-copy
-		assertThat(Futures.allAsList(futures).get(), hasSize(10_000));
+		assertThat(futures.stream().map(CompletableFuture::join).collect(toList()), hasSize(10_000));
 	}
 
 

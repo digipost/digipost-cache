@@ -15,8 +15,8 @@
  */
 package no.digipost.cache.inmemory;
 
-import com.google.common.base.Ticker;
-import com.google.common.cache.CacheBuilder;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.Ticker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,7 +24,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
-public abstract class CacheConfig implements ConfiguresGuavaCache {
+public abstract class CacheConfig implements ConfiguresCaffeine {
 
 	private static final Logger LOG = LoggerFactory.getLogger(CacheConfig.class);
 
@@ -84,13 +84,13 @@ public abstract class CacheConfig implements ConfiguresGuavaCache {
 	static final CacheConfig systemClockTicker = clockTicker(Clock.systemDefaultZone());
 
 	static final CacheConfig logRemoval = onCacheBuilder(builder -> builder.removalListener(
-	        notification -> Cache.LOG.info("Removing '{}' from cache (key={}). Cause: {}.", notification.getValue(), notification.getKey(), notification.getCause())));
+	        (key, value, reason) -> Cache.LOG.info("Removing '{}' from cache (key={}). Cause: {}.", value, key, reason)));
 
 
-	private static CacheConfig onCacheBuilder(ConfiguresGuavaCache configurer) {
+	private static CacheConfig onCacheBuilder(ConfiguresCaffeine configurer) {
 	    return new CacheConfig() {
             @Override
-            public CacheBuilder<Object, Object> configure(CacheBuilder<Object, Object> builder) {
+            public Caffeine<Object, Object> configure(Caffeine<Object, Object> builder) {
                 return configurer.configure(builder);
             }
 	    };

@@ -15,9 +15,7 @@
  */
 package no.digipost.cache.inmemory;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.util.concurrent.ExecutionError;
-import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import no.digipost.cache.loader.Callables;
 import no.digipost.cache.loader.Loader;
 import org.slf4j.Logger;
@@ -27,15 +25,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 
 import static java.util.Arrays.asList;
 import static no.digipost.cache.inmemory.CacheConfig.logRemoval;
 import static no.digipost.cache.inmemory.CacheConfig.systemClockTicker;
 
 /**
- * Wrapper around {@link com.google.common.cache.Cache} from the Guava
- * library.
+ * Wrapper around {@link com.github.benmanes.caffeine.cache.Cache} from the
+ * <a href="https://github.com/ben-manes/caffeine">Caffeine cache library</a>.
  */
 public final class Cache<K, V> {
 
@@ -61,15 +58,15 @@ public final class Cache<K, V> {
 
 	static final Logger LOG = LoggerFactory.getLogger(Cache.class);
 
-	private com.google.common.cache.Cache<K, V> guavaCache;
+	private com.github.benmanes.caffeine.cache.Cache<K, V> caffeineCache;
 	private String name;
 
 	Cache(String name, List<CacheConfig> configurers) {
 		LOG.info("Creating new cache: {}", name);
-		CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder();
+		Caffeine<Object, Object> cacheBuilder = Caffeine.newBuilder();
 		configurers.forEach(configurer -> configurer.configure(cacheBuilder));
 
-		this.guavaCache = cacheBuilder.build();
+		this.caffeineCache = cacheBuilder.build();
 		this.name = name;
 	}
 
@@ -89,27 +86,19 @@ public final class Cache<K, V> {
 	 * key.
 	 */
 	public V get(final K key, final Loader<? super K, V> valueResolver) {
-		try {
-			return guavaCache.get(key, new Callable<V>() {
-				@Override
-				public V call() throws Exception {
-					LOG.debug("{} resolving value for key {}", name, key);
-					V value = valueResolver.load(key);
-					LOG.info("Loaded '{}' into '{}' cache for key '{}'", value, name, key);
-					return value;
+			return caffeineCache.get(key, k -> {
+				LOG.debug("{} resolving value for key {}", name, k);
+				V value;
+				try {
+					value = valueResolver.load(k);
+				} catch (RuntimeException runtimeException) {
+					throw runtimeException;
+				} catch (Exception e) {
+					throw new RuntimeException(getCauseDescription(e), e);
 				}
+				LOG.info("Loaded '{}' into '{}' cache for key '{}'", value, name, k);
+				return value;
 			});
-		} catch (ExecutionException | UncheckedExecutionException e) {
-			final Throwable cause = e.getCause();
-			if (cause instanceof RuntimeException) {
-				throw (RuntimeException) cause;
-			} else {
-				throw new RuntimeException(getCauseDescription(cause), cause);
-			}
-		} catch (ExecutionError e) {
-			final Throwable cause = e.getCause();
-			throw new Error(getCauseDescription(cause), cause);
-		}
 	}
 
 	private String getCauseDescription(final Throwable cause) {
@@ -118,7 +107,7 @@ public final class Cache<K, V> {
 
 	public void invalidateAll() {
 		LOG.debug("Invalidating all in {} cache", name);
-		guavaCache.invalidateAll();
+		caffeineCache.invalidateAll();
 	}
 
 	@SafeVarargs
@@ -128,11 +117,11 @@ public final class Cache<K, V> {
 
 	public void invalidate(Iterable<? extends K> keys) {
 		LOG.debug("Invalidating specific keys in {} cache", name);
-		guavaCache.invalidateAll(keys);
+		caffeineCache.invalidateAll(keys);
 	}
 
 	public CacheStats getCacheStats() {
-		return CacheStats.fromGuava(guavaCache.stats());
+		return CacheStats.fromCaffeineStats(caffeineCache.stats());
 	}
 
 }

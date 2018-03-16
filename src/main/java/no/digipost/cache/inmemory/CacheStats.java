@@ -32,13 +32,13 @@ public class CacheStats {
 		this.missRate = missRate;
 	}
 
-	public static CacheStats fromGuava(com.google.common.cache.CacheStats guavaStats) {
+	public static CacheStats fromCaffeineStats(com.github.benmanes.caffeine.cache.stats.CacheStats caffeineStats) {
 		return new CacheStats(
-				guavaStats.requestCount(),
-				guavaStats.hitCount(),
-				guavaStats.hitRate(),
-				guavaStats.missCount(),
-				guavaStats.missRate());
+				caffeineStats.requestCount(),
+				caffeineStats.hitCount(),
+				caffeineStats.hitRate(),
+				caffeineStats.missCount(),
+				caffeineStats.missRate());
 	}
 
 	public long getRequestCount() {
