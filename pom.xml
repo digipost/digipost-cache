@@ -57,18 +57,6 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>co.unruly</groupId>
-            <artifactId>java-8-matchers</artifactId>
-            <version>1.5</version>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.hamcrest</groupId>
-                    <artifactId>hamcrest-core</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
             <groupId>no.digipost</groupId>
             <artifactId>digg</artifactId>
             <version>0.14</version>

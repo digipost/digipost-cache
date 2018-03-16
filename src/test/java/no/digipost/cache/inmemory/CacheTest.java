@@ -27,7 +27,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static co.unruly.matchers.StreamMatchers.allMatch;
 import static java.time.Duration.ofMillis;
 import static java.time.Duration.ofMinutes;
 import static java.time.Duration.ofSeconds;
@@ -83,7 +82,7 @@ public class CacheTest {
 			List<Future<Integer>> values = generate(() -> valueWhenIncreased).limit(threadAmount).map(threadpool::submit).collect(toList());
 			Thread.sleep(2000);
 			clock.timePasses(ofSeconds(3));
-			assertThat(values.stream().map(mayThrow((Future<Integer> value) -> value.get()).asUnchecked()), allMatch(is(1)));
+			assertThat(values.stream().map(mayThrow((Future<Integer> value) -> value.get()).asUnchecked()).collect(toList()), everyItem(is(1)));
 		} finally {
 			threadpool.shutdown();
 			threadpool.awaitTermination(5, TimeUnit.SECONDS);
