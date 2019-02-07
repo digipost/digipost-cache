@@ -1,5 +1,8 @@
 # Digipost Cache
 
+[![Digipost Cache in Maven Central Repository](https://maven-badges.herokuapp.com/maven-central/no.digipost/digipost-cache/badge.svg?style=flat-square)](https://maven-badges.herokuapp.com/maven-central/no.digipost/digipost-cache)
+
+
 Library containing caching functionality used by Digipost projects.
 
 ## Feature overview
@@ -25,16 +28,3 @@ Other ways to store and read values for fallback can be implemented by implement
 [```FallbackKeeper```](src/main/java/no/digipost/cache2/fallback/FallbackKeeper.java)
 for storing a value for fallback, and the already mentioned ```Loader``` for
 loading an already stored fallback value.
-
-
-## Maven dependency
-
-Latest version: [![Digipost Cache in Maven Central Repository](https://maven-badges.herokuapp.com/maven-central/no.digipost/digipost-cache/badge.svg?style=flat-square)](https://maven-badges.herokuapp.com/maven-central/no.digipost/digipost-cache)
-
-```xml
-<dependency>
-    <groupId>no.digipost</groupId>
-    <artifactId>digipost-cache</artifactId>
-    <version>2.0</version>
-</dependency>
-```
