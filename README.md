@@ -1,5 +1,4 @@
-Digipost Cache
-===================================
+# Digipost Cache
 
 Library containing caching functionality used by Digipost projects.
 
