@@ -2,6 +2,7 @@
 
 [![Digipost Cache in Maven Central Repository](https://maven-badges.herokuapp.com/maven-central/no.digipost/digipost-cache/badge.svg?style=flat-square)](https://maven-badges.herokuapp.com/maven-central/no.digipost/digipost-cache)
 [![Build Status](https://travis-ci.org/digipost/digipost-cache.svg?branch=master)](https://travis-ci.org/digipost/digipost-cache)
+[![License](https://img.shields.io/badge/license-Apache%202-blue)](https://github.com/digipost/digipost-cache/blob/master/LICENCE)
 
 Library containing caching functionality used by Digipost projects.
 
