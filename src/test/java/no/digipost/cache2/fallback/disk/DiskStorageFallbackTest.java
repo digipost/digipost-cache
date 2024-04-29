@@ -24,12 +24,10 @@ import no.digipost.cache2.fallback.testharness.SimulatedLoaderFailure;
 import no.digipost.cache2.loader.Loader;
 import no.digipost.cache2.loader.LoaderDecorator;
 import no.digipost.time.ControllableClock;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.TemporaryFolder;
-import org.junit.rules.Timeout;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -42,60 +40,55 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 import static no.digipost.cache2.fallback.disk.FallbackFileNamingStrategy.USE_KEY_TOSTRING_AS_FILENAME;
 import static no.digipost.cache2.loader.Callables.toLoader;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class DiskStorageFallbackTest {
-
-	@Rule
-	public TemporaryFolder temporaryFolder = new TemporaryFolder();
-	@Rule
-	public ExpectedException expectedException = ExpectedException.none();
-	@Rule
-	public final Timeout timeout = new Timeout(10, TimeUnit.SECONDS);
+@Timeout(10)
+class DiskStorageFallbackTest {
 
 	private final ControllableClock clock = ControllableClock.freezedAt(Instant.now());
 
-	public static final String FIRST_CONTENT = "first_content";
-	public static final String SECOND_CONTENT = "second_content";
-	public static final String THIRD_CONTENT = "third_content";
+	private static final String FIRST_CONTENT = "first_content";
+	private static final String SECOND_CONTENT = "second_content";
+	private static final String THIRD_CONTENT = "third_content";
 
 	private final String key = getClass().getSimpleName() + "_cachekey";
+
+	@TempDir
 	private Path cache;
 	private ExecutorService executor;
 
-	@Before
-	public void setUp() throws IOException {
-		cache = temporaryFolder.getRoot().toPath().resolve("fallback");
+	@BeforeEach
+	void setUp() {
 		executor = Executors.newSingleThreadExecutor();
 	}
 
 	@Test
-	public void should_load_cache_from_disk_as_fallback() throws Exception {
+	void should_load_cache_from_disk_as_fallback() throws Exception {
 		assertThat(newDiskFallback(new OkCacheLoader(FIRST_CONTENT)).call(), is(FIRST_CONTENT));
 		assertThat(newDiskFallback(new FailingCacheLoader()).call(), is(FIRST_CONTENT));
 	}
 
 	@Test
-	public void should_fail_if_underlying_loader_fails_and_not_stored_on_disk() throws Exception {
-		expectedException.expect(SimulatedLoaderFailure.class);
-		newDiskFallback(new FailingCacheLoader()).call();
+	void should_fail_if_underlying_loader_fails_and_not_stored_on_disk() throws Exception {
+		Callable<String> failingCacheLoader = newDiskFallback(new FailingCacheLoader());
+		assertThrows(SimulatedLoaderFailure.class, failingCacheLoader::call);
 	}
 
 	@Test
-	public void should_primarily_return_value_from_underlying_loader() throws Exception {
+	void should_primarily_return_value_from_underlying_loader() throws Exception {
 		newDiskFallback(new OkCacheLoader(FIRST_CONTENT)).call();
 
 		assertThat(newDiskFallback(new OkCacheLoader(SECOND_CONTENT)).call(), is(SECOND_CONTENT));
 	}
 
 	@Test
-	public void should_not_allow_concurrent_updates_of_disk_fallback() throws Exception {
+	void should_not_allow_concurrent_updates_of_disk_fallback() throws Exception {
 		newDiskFallback(new OkCacheLoader(FIRST_CONTENT)).call();
 
 		final WaitOnWriteMarshaller waitingMarshaller = new WaitOnWriteMarshaller();
@@ -116,7 +109,7 @@ public class DiskStorageFallbackTest {
 
 
 	@Test
-	public void should_allow_update_of_disk_fallback_if_lock_expired() throws Exception {
+	void should_allow_update_of_disk_fallback_if_lock_expired() throws Exception {
 
 		LoaderDecorator<String, String> diskFallbackDecorator = new LoaderWithDiskFallbackDecorator<>(cache, USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>(), new FallbackKeeperFailedHandler.Rethrow(), clock);
 		Loader<String, String> diskFallback = diskFallbackDecorator.decorate(toLoader(new OkCacheLoader(FIRST_CONTENT)));
@@ -143,7 +136,7 @@ public class DiskStorageFallbackTest {
 	}
 
 
-	public static class WaitOnWriteMarshaller extends SerializingMarshaller<String> {
+	private static class WaitOnWriteMarshaller extends SerializingMarshaller<String> {
 
 		private CountDownLatch waitOnWrite = new CountDownLatch(1);
 		private CountDownLatch waitBeforeStartWrite = new CountDownLatch(1);
