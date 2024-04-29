@@ -98,7 +98,7 @@ public class LockedFile {
 	 *         lockFile.release();
 	 *     }
 	 * }
-	 * </pre>
+	 * }</pre>
 	 *
 	 *
 	 * @return {@code true} if the lock was acquired, {@code false} false otherwise.
