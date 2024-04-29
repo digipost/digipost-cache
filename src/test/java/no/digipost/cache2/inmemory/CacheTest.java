@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) Posten Norge AS
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,7 +17,8 @@ package no.digipost.cache2.inmemory;
 
 import no.digipost.cache2.loader.Loader;
 import no.digipost.time.ControllableClock;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -37,12 +38,12 @@ import static java.util.stream.Stream.generate;
 import static no.digipost.DiggExceptions.mayThrow;
 import static no.digipost.cache2.inmemory.CacheConfig.clockTicker;
 import static no.digipost.cache2.inmemory.CacheConfig.expireAfterAccess;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.is;
-import static org.junit.Assert.assertThat;
 
-public class CacheTest {
+class CacheTest {
 
 	private final AtomicInteger num = new AtomicInteger(-1);
 	private final Loader<String, Integer> incrementingValue = key -> num.incrementAndGet();
@@ -53,12 +54,12 @@ public class CacheTest {
             new SingleCached<Integer>("CacheTest", incrementingValue, new Cache<String, Integer>("single-int", asList(expireAfterAccess(ofSeconds(1)), clockTicker(clock))));
 
 	@Test
-	public void resolvesValueOnFirstAccess() {
+	void resolvesValueOnFirstAccess() {
 		assertThat(value.get(), is(0));
 	}
 
 	@Test
-	public void reusesCachedValueWhileAccessingWithinExpiryTime() throws Exception {
+	void reusesCachedValueWhileAccessingWithinExpiryTime() throws Exception {
 		assertThat(asList(value.get(), value.get(), value.get()), everyItem(is(0)));
 		clock.timePasses(ofMillis(900));
 		assertThat(value.get(), is(0));
@@ -68,8 +69,8 @@ public class CacheTest {
 		assertThat(asList(value.get(), value.get(), value.get()), contains(1, 1, 1));
 	}
 
-	@Test(timeout = 40000)
-	public void threadSafety() throws InterruptedException {
+	@Test @Timeout(40)
+	void threadSafety() throws InterruptedException {
 		final int threadAmount = 300;
 		ExecutorService threadpool = Executors.newFixedThreadPool(threadAmount);
 		try {
@@ -90,7 +91,7 @@ public class CacheTest {
 	}
 
 	@Test
-	public void invalidatingCache() {
+	void invalidatingCache() {
 		assertThat(value.get(), is(0));
 		assertThat(value.get(), is(0));
 		clock.timePasses(ofMinutes(1));

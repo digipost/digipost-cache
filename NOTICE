@@ -9,7 +9,9 @@ Licensed under Apache 2 - http://www.apache.org/licenses/LICENSE-2.0.html
 This software includes third party software subject to the following licenses:
 
   Caffeine cache under Apache License, Version 2.0
+  Checker Qual under The MIT License
   Digipost Caching under The Apache Software License, Version 2.0
+  error-prone annotations under Apache 2.0
   SLF4J API Module under MIT License
 
 

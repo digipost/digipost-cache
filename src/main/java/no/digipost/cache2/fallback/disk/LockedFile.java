@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) Posten Norge AS
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -98,7 +98,7 @@ public class LockedFile {
 	 *         lockFile.release();
 	 *     }
 	 * }
-	 * </pre>
+	 * }</pre>
 	 *
 	 *
 	 * @return {@code true} if the lock was acquired, {@code false} false otherwise.

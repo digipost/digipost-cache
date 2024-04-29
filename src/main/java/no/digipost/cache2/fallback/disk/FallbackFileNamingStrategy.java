@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) Posten Norge AS
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,8 +32,7 @@ public interface FallbackFileNamingStrategy<K> {
 	 *
 	 * The filename returned should not contain any special characters. Ideally matching pattern [a-z0-9]+ .
 	 *
-	 * @param key
-	 * @return
+	 * @return a filename for the given key
 	 */
 	String toFilename(K key);
 

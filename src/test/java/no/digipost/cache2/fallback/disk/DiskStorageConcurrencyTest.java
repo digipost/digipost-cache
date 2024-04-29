@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) Posten Norge AS
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,15 +20,15 @@ import no.digipost.cache2.fallback.marshall.SerializingMarshaller;
 import no.digipost.cache2.fallback.testharness.RandomAnswerCacheLoader;
 import no.digipost.cache2.loader.Loader;
 import no.digipost.cache2.loader.LoaderDecorator;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
-import org.junit.rules.Timeout;
-import org.mockito.junit.MockitoJUnit;
-import org.mockito.junit.MockitoRule;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -40,32 +40,25 @@ import static java.util.stream.Collectors.toList;
 import static no.digipost.DiggExceptions.mayThrow;
 import static no.digipost.cache2.fallback.disk.FallbackFileNamingStrategy.USE_KEY_TOSTRING_AS_FILENAME;
 import static no.digipost.cache2.loader.Callables.toLoader;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
-import static org.junit.Assert.assertThat;
 
-public class DiskStorageConcurrencyTest {
-
-	@Rule
-	public final TemporaryFolder temporaryFolder = new TemporaryFolder();
-
-	@Rule
-	public final Timeout timeout = Timeout.seconds(60);
-
-	@Rule
-	public final MockitoRule mockito = MockitoJUnit.rule();
+@ExtendWith(MockitoExtension.class)
+@Timeout(60)
+class DiskStorageConcurrencyTest {
 
 	private ExecutorService executorService;
 
-	@Before
-	public void setUpExecutor() {
+	@BeforeEach
+	void setUpExecutor() {
 		executorService = Executors.newFixedThreadPool(30);
 	}
 
 	@Test
-	public void massive_concurrency() throws Exception {
+	void massive_concurrency(@TempDir Path diskFallbackDir) throws Exception {
 		String key = getClass().getSimpleName();
 		LoaderDecorator<String, String> cacheLoaderFactory = new LoaderWithDiskFallbackDecorator<>(
-				temporaryFolder.getRoot().toPath(), USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>(), new FallbackKeeperFailedHandler.Rethrow());
+				diskFallbackDir, USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>(), new FallbackKeeperFailedHandler.Rethrow());
 		Callable<String> fallbackLoader = new Loader.AsCallable<>(cacheLoaderFactory.decorate(toLoader(new RandomAnswerCacheLoader())), key);
 		fallbackLoader.call(); // initialize disk-fallback
 
@@ -78,8 +71,8 @@ public class DiskStorageConcurrencyTest {
 	}
 
 
-	@After
-	public void shutdownExecutor() {
+	@AfterEach
+	void shutdownExecutor() {
 		executorService.shutdownNow();
 	}
 

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) Posten Norge AS
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,9 +21,8 @@ import no.digipost.cache2.fallback.testharness.OkCacheLoader;
 import no.digipost.cache2.inmemory.Cache;
 import no.digipost.cache2.inmemory.SingleCached;
 import no.digipost.cache2.loader.LoaderDecorator;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -32,26 +31,23 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static no.digipost.cache2.fallback.disk.FallbackFileNamingStrategy.USE_KEY_TOSTRING_AS_FILENAME;
 import static no.digipost.cache2.loader.Callables.toLoader;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.junit.Assert.assertThat;
 
-public class CacheWithDiskFallbackTest {
 
-	@Rule
-	public final TemporaryFolder fallbackFolder = new TemporaryFolder();
-
+class CacheWithDiskFallbackTest {
 
 	private static final String KEY1 = "key1";
 	private static final String KEY2 = "key2";
 	private static final String CONTENT1 = "content1";
 	private static final String CONTENT2 = "content2";
 
-	public static final String FIRST_VALUE = "thevalue";
+	private static final String FIRST_VALUE = "thevalue";
 
 	@Test
-	public void test_single_cached() throws IOException {
+	void test_single_cached(@TempDir Path diskFallbackFolder) throws IOException {
 		LoaderDecorator<String, String> diskFallbackDecorator = new LoaderWithDiskFallbackDecorator<>(
-				fallbackFolder.getRoot().toPath(), USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>());
+				diskFallbackFolder, USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>());
 
 		SingleCached<String> cache = new SingleCached<>(diskFallbackDecorator.decorate(toLoader(new FailSecondCacheLoader(FIRST_VALUE))));
 		assertThat(cache.get(), is(FIRST_VALUE));
@@ -60,8 +56,7 @@ public class CacheWithDiskFallbackTest {
 	}
 
 	@Test
-	public void test_cache_with_multiple_keys() throws IOException {
-		final Path cacheDir = fallbackFolder.newFolder().toPath();
+	void test_cache_with_multiple_keys(@TempDir Path cacheDir) throws IOException {
 		final Cache<String, String> cache = Cache.create();
 		final LoaderDecorator<String, String> diskFallbackFactory = new LoaderWithDiskFallbackDecorator<>(cacheDir, USE_KEY_TOSTRING_AS_FILENAME, new SerializingMarshaller<String>());
 
