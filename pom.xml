@@ -93,19 +93,23 @@
 				<plugin>
 					<groupId>com.mycila</groupId>
 					<artifactId>license-maven-plugin</artifactId>
-					<version>3.0</version>
+					<version>4.3</version>
 					<configuration>
-						<header>src/main/license-header.txt</header>
 						<strictCheck>true</strictCheck>
-						<excludes>
-							<exclude>LICENSE*</exclude>
-							<exclude>NOTICE</exclude>
-							<exclude>.java-version</exclude>
-							<exclude>src/main/notice/NOTICE.template</exclude>
-							<exclude>**/*.xml</exclude>
-							<exclude>src/test/resources/**</exclude>
-                            <exclude>.github/**/*.yml</exclude>
-						</excludes>
+						<licenseSets>
+							<licenseSet>
+								<header>src/license-header.txt</header>
+								<excludes>
+									<exclude>LICENSE*</exclude>
+									<exclude>NOTICE</exclude>
+									<exclude>.java-version</exclude>
+									<exclude>src/main/notice/NOTICE.template</exclude>
+									<exclude>**/*.xml</exclude>
+									<exclude>src/test/resources/**</exclude>
+									<exclude>.github/**/*.yml</exclude>
+								</excludes>
+							</licenseSet>
+                        </licenseSets>
 					</configuration>
 				</plugin>
 				<plugin>
