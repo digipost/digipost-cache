@@ -66,7 +66,8 @@
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>
-            <version>2.6.2</version>
+            <!-- Caffeine v3.x requires Java 11 -->
+            <version>2.9.3</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -135,7 +136,9 @@
 								</excludes>
                                 <includes>
                                     <include>*:*:*:*:test</include>
-                                    <include>com.github.ben-manes.caffeine:caffeine</include>
+                                    <include>com.github.ben-manes.caffeine</include>
+                                    <include>org.checkerframework</include>
+                                    <include>com.google.errorprone</include>
                                     <include>org.slf4j:slf4j-api</include>
                                 </includes>
 								<searchTransitive>true</searchTransitive>
